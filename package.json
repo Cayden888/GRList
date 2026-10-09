@@ -1,0 +1,37 @@
+{
+  "name": "telegram-dashboard",
+  "version": "1.0.0",
+  "description": "Daily simulated-data dashboard image generator that posts to Telegram",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "preview": "tsx src/cli.ts preview",
+    "check-sheet": "tsx src/cli.ts check-sheet",
+    "status": "tsx src/cli.ts status",
+    "post:test": "tsx src/cli.ts post-test",
+    "telegram:chat-id": "tsx src/cli.ts telegram-chat-id",
+    "resolve": "tsx src/cli.ts resolve",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^18.0.6",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9",
+    "vitest": "^5.0.3"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  }
+}
