@@ -30,6 +30,19 @@ Every image says **SIMULATED DATA** and its footer states the values are not rea
 
 ---
 
+## 0. No computer needed: buttons on GitHub
+
+Everything in sections 1–3 and 8 can also be done from the browser:
+
+1. Add your settings as **secrets**: repository → **Settings → Secrets and variables → Actions → New repository secret**. Names: `GOOGLE_SHEET_CSV_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (add each one when you reach that step).
+2. Repository → **Actions → Dashboard tools → Run workflow**, choose an action:
+   - `preview` / `preview-all-rows`: makes the image(s). Download them from the run page under **Artifacts → dashboard-images**.
+   - `check-sheet`, `telegram-chat-id`, `status`: results appear in the run's log (click the run → **run** → **Run** step).
+   - `post-test`: sends one test image; only works if you type `SEND` in the confirm box.
+   - `resolve`: settles an "uncertain" day (fill in the date and pick what happened).
+
+The **Tests** workflow runs automatically on every code change and never sends anything.
+
 ## 1. Run it on your computer
 
 You need **Node.js 22 or newer** (download the "LTS" installer from nodejs.org). Then, in a terminal inside this folder:
