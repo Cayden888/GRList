@@ -227,3 +227,6 @@ begin
     end if;
   end loop;
 end $$;
+
+-- Tell the Data API to pick up the new tables right away.
+notify pgrst, 'reload schema';
