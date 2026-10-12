@@ -72,6 +72,17 @@ create index if not exists dashboard_history_date_idx on public.dashboard_histor
 alter table public.daily_schedule enable row level security;
 alter table public.dashboard_history enable row level security;
 
+-- Make sure the server-side service role can use the tables even if the
+-- project was created with "automatically expose new tables" turned off.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant usage on schema public to service_role;
+    grant select, insert, update, delete on public.daily_schedule, public.dashboard_history to service_role;
+    grant usage, select on all sequences in schema public to service_role;
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Functions. Each one is a single SQL statement, so it is atomic: two
 -- workers calling at the same moment cannot both succeed.
