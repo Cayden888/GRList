@@ -73,7 +73,7 @@ async function postTest(config: AppConfig, args: Args): Promise<number> {
   const sheet = await readSheet(config);
   const g = await generateDashboard(config, { malaysiaDate: date, items: sheet.items, itemId: str(args, 'item'), timestamp: new Date(), fileTag: '-test' });
   const caption = config.telegram.captionEnabled ? buildCaption({ timestampText: formatMalaysiaDisplay(new Date()), test: true }) : undefined;
-  log.info('Sending test image to Telegram (explicit --confirm given)');
+  log.info(`Sending test image to Telegram chat ${config.telegram.chatId} (explicit --confirm given)`);
   const { messageId } = await tg.sendPhoto(g.pngPath, caption);
   console.log(`Test image sent. Telegram message id: ${messageId}. File: ${path.relative(process.cwd(), g.pngPath)}`);
   console.log('This test does not count as the daily post and does not change the schedule.');
