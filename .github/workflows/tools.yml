@@ -81,6 +81,9 @@ jobs:
           set -euo pipefail
           DATE_ARGS=()
           if [ -n "$INPUT_DATE" ]; then DATE_ARGS=(--date "$INPUT_DATE"); fi
+          # Show the result on the run's Summary page as well as in the log.
+          exec > >(tee -a result.txt) 2>&1
+          trap 'sleep 1; { echo "### Result: $INPUT_ACTION"; echo; echo "\`\`\`"; sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" result.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"' EXIT
           case "$INPUT_ACTION" in
             preview)          npx tsx src/cli.ts preview "${DATE_ARGS[@]}" ;;
             preview-all-rows) npx tsx src/cli.ts preview --all "${DATE_ARGS[@]}" ;;
