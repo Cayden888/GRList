@@ -19,13 +19,20 @@ export class SupabaseScheduleRepository implements ScheduleRepository {
   constructor(url: string, serviceRoleKey: string) {
     this.db = createClient(url, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: { headers: { 'x-client-info': 'telegram-dashboard-worker' } },
+      global: {
+        headers: { 'x-client-info': 'telegram-dashboard-worker' },
+        // Never wait forever: give up on any database request after 20 seconds.
+        fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(20_000) }),
+      },
     });
   }
 
   private async rpc(fn: string, args: Record<string, unknown>): Promise<ScheduleRow[]> {
     const { data, error } = await this.db.rpc(fn, args);
     if (error) {
+      if (/abort|timeout|fetch failed|ENOTFOUND/i.test(error.message)) {
+        throw new DatabaseError(`Could not reach Supabase (${error.message}). Check SUPABASE_URL is the Project URL like https://abcd1234.supabase.co`);
+      }
       const hint = /function .* does not exist|Could not find the function/i.test(error.message)
         ? ' – did you run supabase/migrations/20261009000000_init.sql in the Supabase SQL editor?'
         : '';

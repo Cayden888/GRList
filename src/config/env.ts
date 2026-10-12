@@ -116,8 +116,12 @@ export function loadConfig(env: Env = process.env): AppConfig {
   const tsMax = num(env, 'SIM_TIME_SINCE_UPDATE_MAX_MINUTES', 45, problems, { min: 0, int: true });
   if (tsMin > tsMax) problems.push('SIM_TIME_SINCE_UPDATE_MIN_MINUTES must not exceed SIM_TIME_SINCE_UPDATE_MAX_MINUTES');
 
-  const supabaseUrl = str(env, 'SUPABASE_URL');
+  // Accept common paste mistakes: trailing slash or the /rest/v1 API path.
+  const supabaseUrl = str(env, 'SUPABASE_URL')?.replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
   if (supabaseUrl && !/^https:\/\/.+/.test(supabaseUrl)) problems.push('SUPABASE_URL must start with https://');
+  else if (supabaseUrl && /supabase\.com\/dashboard/.test(supabaseUrl)) {
+    problems.push('SUPABASE_URL is the dashboard page address. Use the Project URL from Project Settings → Data API, like https://abcd1234.supabase.co');
+  }
   const chatId = str(env, 'TELEGRAM_CHAT_ID');
   if (chatId && !/^(-?\d+|@[A-Za-z0-9_]{5,})$/.test(chatId)) problems.push('TELEGRAM_CHAT_ID should be a number like -1001234567890 (or @channelusername)');
   const csvUrl = str(env, 'GOOGLE_SHEET_CSV_URL');

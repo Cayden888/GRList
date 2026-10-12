@@ -49,3 +49,10 @@ describe('configuration', () => {
     expect(s).toContain('configured');
   });
 });
+
+describe('Supabase URL', () => {
+  it('fixes trailing slash and /rest/v1, rejects the dashboard address', () => {
+    expect(loadConfig({ SUPABASE_URL: 'https://abc.supabase.co/rest/v1/' }).supabase.url).toBe('https://abc.supabase.co');
+    expect(() => loadConfig({ SUPABASE_URL: 'https://supabase.com/dashboard/project/abc' })).toThrow(/Project URL/);
+  });
+});
