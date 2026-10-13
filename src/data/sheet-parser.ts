@@ -30,6 +30,8 @@ export const COLUMNS = {
   outputMax: 'Output_24H_Max',
   eventMin: 'Event_Count_24H_Min',
   eventMax: 'Event_Count_24H_Max',
+  limitMin: 'Low_Limit_24H_Min',
+  limitMax: 'High_Limit_24H_Max',
   timeSince: 'Time_Since_Last_Update',
   timer: 'Random_Timer_Seconds',
 } as const;
@@ -181,6 +183,7 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
     const volume24h = readRange('Volume (24H)', COLUMNS.volumeMin, COLUMNS.volumeMax, { required: false });
     const output24h = readRange('Output (24H)', COLUMNS.outputMin, COLUMNS.outputMax, { required: false });
     const eventCount24h = readRange('Event Count (24H)', COLUMNS.eventMin, COLUMNS.eventMax, { required: false, integer: true });
+    const limit24h = readRange('Limit (24H)', COLUMNS.limitMin, COLUMNS.limitMax, { required: false });
 
     let currentSheetValue: number | undefined;
     const cv = parseNumberCell(cell(COLUMNS.current));
@@ -242,6 +245,7 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
       volume24h,
       output24h,
       eventCount24h,
+      limit24h,
       timeSinceUpdateMinutes,
       timeSinceUpdateText,
       randomTimerSeconds,

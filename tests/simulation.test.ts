@@ -46,6 +46,7 @@ describe('simulated metrics', () => {
       expect(within(s.volume24h!.value, item.volume24h!)).toBe(true);
       expect(within(s.output24h!.value, item.output24h!)).toBe(true);
       expect(within(s.eventCount24h!.value, item.eventCount24h!)).toBe(true);
+      expect(within(s.limit24h!.value, item.limit24h!)).toBe(true);
       for (const v of [s.current, s.baseline!, s.difference!, s.volume24h!, s.output24h!, s.eventCount24h!]) {
         expect(Number.isFinite(v.value)).toBe(true);
       }

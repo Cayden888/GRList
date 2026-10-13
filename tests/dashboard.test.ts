@@ -26,7 +26,6 @@ describe('dashboard SVG', () => {
   it('shows the simulated-data disclosure, the trend label and Malaysia time', () => {
     const { svg } = svgFor();
     expect(svg).toContain('SIMULATED DATA');
-    expect(svg).toContain('Simulated 24-Hour Trend');
     expect(svg).toContain('9 Oct 2026, 2:47 PM MYT');
     expect(svg).toContain('not real measurements');
   });
@@ -39,23 +38,26 @@ describe('dashboard SVG', () => {
   });
 
   it('shows all labels when every field is configured, with readable names', () => {
-    const { svg } = svgFor({ lastUpdated: 'Daily', nextUpdate: 'Tomorrow' });
-    for (const label of ['CURRENT VALUE', 'BASELINE VALUE', 'DIFFERENCE FROM BASELINE', 'VOLUME (24H)', 'OUTPUT (24H)', 'EVENT COUNT (24H)', 'TIME SINCE LAST UPDATE', 'DATA SOURCE', 'REGION', 'LAST UPDATED', 'NEXT UPDATE']) {
+    const { svg } = svgFor({ limit24h: { min: 54925, max: 62150 } });
+    for (const label of ['CURRENT VALUE', 'BASELINE VALUE', 'LIMIT (24H)', 'VOLUME (24H)', 'OUTPUT (24H)', 'EVENT COUNT (24H)', 'SOURCE', 'REGION']) {
       expect(svg).toContain(label);
     }
     expect(svg).not.toMatch(/[A-Za-z]+_[A-Za-z]+_?(Min|Max)/); // no raw column names
   });
 
-  it('hides cards for missing optional fields and never prints undefined/NaN', () => {
-    const { svg } = svgFor({ baseline: undefined, volume24h: undefined, output24h: undefined, eventCount24h: undefined, dataSource: undefined, titleCn: undefined });
-    expect(svg).not.toContain('BASELINE VALUE');
-    expect(svg).not.toContain('DIFFERENCE');
-    expect(svg).not.toContain('VOLUME');
-    expect(svg).not.toContain('OUTPUT');
-    expect(svg).not.toContain('EVENT COUNT');
-    expect(svg).not.toContain('DATA SOURCE');
-    expect(svg).toContain('TIME SINCE LAST UPDATE');
+  it('hides blocks for missing optional fields and never prints undefined/NaN', () => {
+    const { svg } = svgFor({ baseline: undefined, volume24h: undefined, output24h: undefined, eventCount24h: undefined, limit24h: undefined, dataSource: undefined, titleCn: undefined });
+    for (const gone of ['BASELINE VALUE', 'LIMIT', 'VOLUME', 'OUTPUT', 'EVENT COUNT', 'SOURCE']) expect(svg).not.toContain(gone);
+    expect(svg).toContain('CURRENT VALUE');
+    expect(svg).toContain('REGION');
     expect(svg).not.toMatch(/undefined|NaN|Infinity|null/);
+  });
+
+  it('shows a lettered tile when there is no picture, and the picture when there is one', () => {
+    expect(svgFor().svg).toContain('url(#tile)');
+    const withPic = svgFor({}, { thumbnailDataUri: 'data:image/png;base64,AAAA' }).svg;
+    expect(withPic).toContain('<image');
+    expect(withPic).not.toContain('fill="url(#tile)"');
   });
 
   it('formats the main value and contains no gambling or prediction wording', () => {

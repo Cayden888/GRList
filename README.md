@@ -88,6 +88,7 @@ How the sheet is read:
 | `Current_Value_Min/Max` | **Required.** Rows with blanks, text, or min > max are skipped and logged. |
 | `Current_Value` | Ignored unless `CURRENT_VALUE_SOURCE=sheet`; then used as the fixed main value. |
 | `Baseline_Value_Min/Max`, `Volume_24H_*`, `Output_24H_*`, `Event_Count_24H_*` | Optional. Blank or invalid → that card is hidden (with a log line). Event Count is always a whole number. |
+| `Low_Limit_24H_Min`, `High_Limit_24H_Max` | Optional. A random number in this range is shown as the big **Limit (24H)** value in the middle. |
 | `Data_Source`, `Region`, `Last_Updated`, `Next_Update` | Shown as small labels. Placeholder words like `Static`, `-`, `N/A` count as blank. |
 | `Time_Since_Last_Update` | A number = minutes; short text shown as-is; blank → a simulated duration (3–45 min by default). |
 | `Random_Timer_Seconds` | Read and validated, but intentionally **not drawn**: a countdown would suggest something is about to happen. |

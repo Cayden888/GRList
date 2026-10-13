@@ -128,3 +128,12 @@ describe('sheet URL building', () => {
     expect(resolveCsvUrl(base)).toBeUndefined();
   });
 });
+
+describe('Limit (24H) columns', () => {
+  it('reads Low_Limit_24H_Min / High_Limit_24H_Max with thousands separators', () => {
+    const csv = 'Title_EN,Current_Value_Min,Current_Value_Max,Low_Limit_24H_Min,High_Limit_24H_Max\nA,95,99.5,"54,925","62,150"\nB,95,99.5,,\n';
+    const r = parseSheetCsv(csv);
+    expect(r.items[0]!.limit24h).toEqual({ min: 54925, max: 62150 });
+    expect(r.items[1]!.limit24h).toBeUndefined();
+  });
+});

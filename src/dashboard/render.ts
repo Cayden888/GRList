@@ -28,7 +28,7 @@ export async function fetchThumbnail(url: string, timeoutMs = 8000): Promise<str
     if (len > MAX_THUMB_BYTES) throw new Error('image too large');
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length > MAX_THUMB_BYTES) throw new Error('image too large');
-    const png = await sharp(buf).resize(184, 184, { fit: 'cover' }).png().toBuffer();
+    const png = await sharp(buf).resize(300, 300, { fit: "cover" }).png().toBuffer();
     return `data:image/png;base64,${png.toString('base64')}`;
   } catch (e) {
     log.warn('Thumbnail skipped', { url, reason: (e as Error).message });

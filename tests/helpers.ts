@@ -18,6 +18,7 @@ export function sampleItem(overrides: Partial<DashboardItem> = {}): DashboardIte
     volume24h: { min: 1000, max: 50000 },
     output24h: { min: 10.5, max: 80.25 },
     eventCount24h: { min: 3, max: 40 },
+    limit24h: { min: 54925, max: 62150 },
     ...overrides,
   };
 }

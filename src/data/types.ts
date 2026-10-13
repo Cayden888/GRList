@@ -25,6 +25,7 @@ export interface DashboardItem {
   volume24h?: NumericRange;
   output24h?: NumericRange;
   eventCount24h?: NumericRange;
+  limit24h?: NumericRange;
   /** Minutes, when the sheet gives a number. */
   timeSinceUpdateMinutes?: number;
   /** Free text such as "12 min", when the sheet gives text. */

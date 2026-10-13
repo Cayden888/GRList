@@ -28,6 +28,7 @@ export interface SimulatedDashboard {
   volume24h?: SimulatedValue;
   output24h?: SimulatedValue;
   eventCount24h?: SimulatedValue;
+  limit24h?: SimulatedValue;
   timeSinceUpdate: { minutes?: number; text?: string; simulated: boolean };
   trend: TrendPoint[];
 }
@@ -98,6 +99,7 @@ export function simulateDashboard(item: DashboardItem, seed: string, opts: Simul
   const rngVolume = streamRng(seed, 'metric:volume');
   const rngOutput = streamRng(seed, 'metric:output');
   const rngEvents = streamRng(seed, 'metric:events');
+  const rngLimit = streamRng(seed, 'metric:limit');
   const rngTime = streamRng(seed, 'metric:time-since');
   const rngGraph = streamRng(seed, 'graph');
 
@@ -118,6 +120,7 @@ export function simulateDashboard(item: DashboardItem, seed: string, opts: Simul
   const volume24h = item.volume24h ? drawDecimal(rngVolume, item.volume24h, 'Volume (24H)') : undefined;
   const output24h = item.output24h ? drawDecimal(rngOutput, item.output24h, 'Output (24H)') : undefined;
   const eventCount24h = item.eventCount24h ? drawInteger(rngEvents, item.eventCount24h, 'Event Count (24H)') : undefined;
+  const limit24h = item.limit24h ? drawDecimal(rngLimit, item.limit24h, 'Limit (24H)') : undefined;
 
   let timeSinceUpdate: SimulatedDashboard['timeSinceUpdate'];
   if (item.timeSinceUpdateMinutes !== undefined) timeSinceUpdate = { minutes: Math.round(item.timeSinceUpdateMinutes), simulated: false };
@@ -126,7 +129,7 @@ export function simulateDashboard(item: DashboardItem, seed: string, opts: Simul
 
   const trend = generateTrend(item.current, current.value, rngGraph);
 
-  return { itemId: item.id, seed, current, baseline, difference, volume24h, output24h, eventCount24h, timeSinceUpdate, trend };
+  return { itemId: item.id, seed, current, baseline, difference, volume24h, output24h, eventCount24h, limit24h, timeSinceUpdate, trend };
 }
 
 /** Compact JSON for the database (graph points are not stored – they are reproducible from the seed). */
@@ -138,6 +141,7 @@ export function summarizeValues(sim: SimulatedDashboard): Record<string, number 
     volume_24h: sim.volume24h?.value ?? null,
     output_24h: sim.output24h?.value ?? null,
     event_count_24h: sim.eventCount24h?.value ?? null,
+    limit_24h: sim.limit24h?.value ?? null,
     time_since_update: sim.timeSinceUpdate.text ?? (sim.timeSinceUpdate.minutes ?? null),
     trend_points: sim.trend.length,
   };
