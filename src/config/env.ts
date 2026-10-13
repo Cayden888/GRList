@@ -35,7 +35,7 @@ export interface AppConfig {
   telegram: { botToken?: string; chatId?: string; timeoutMs: number; captionEnabled: boolean };
   enableScheduler: boolean;
   dryRun: boolean;
-  dashboard: { outputDir: string; width: number; height: number; simulatedLabel: string };
+  dashboard: { outputDir: string; width: number; height: number; simulatedLabel: string; theme: 'gamer' | 'clean' };
   window: { startMinutes: number; endMinutes: number; startText: string; endText: string };
   retry: { maxAttempts: number; delaysMinutes: number[]; missedJobGraceMinutes: number };
   worker: { checkIntervalMinutes: number; instanceId: string; leaseSeconds: number };
@@ -112,6 +112,9 @@ export function loadConfig(env: Env = process.env): AppConfig {
     problems.push('SIMULATED_DATA_LABEL must clearly say the data is simulated (it must contain "SIMULATED")');
   }
 
+  const themeRaw = (str(env, 'DASHBOARD_THEME') ?? 'gamer').toLowerCase();
+  if (!['gamer', 'clean'].includes(themeRaw)) problems.push(`DASHBOARD_THEME must be gamer or clean (got "${themeRaw}")`);
+
   const tsMin = num(env, 'SIM_TIME_SINCE_UPDATE_MIN_MINUTES', 3, problems, { min: 0, int: true });
   const tsMax = num(env, 'SIM_TIME_SINCE_UPDATE_MAX_MINUTES', 45, problems, { min: 0, int: true });
   if (tsMin > tsMax) problems.push('SIM_TIME_SINCE_UPDATE_MIN_MINUTES must not exceed SIM_TIME_SINCE_UPDATE_MAX_MINUTES');
@@ -154,6 +157,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
       width: num(env, 'DASHBOARD_WIDTH', 1600, problems, { min: 800, max: 4000, int: true }),
       height: num(env, 'DASHBOARD_HEIGHT', 900, problems, { min: 450, max: 2250, int: true }),
       simulatedLabel,
+      theme: themeRaw as 'gamer' | 'clean',
     },
     window: { startMinutes, endMinutes, startText, endText },
     retry: {
@@ -225,6 +229,6 @@ export function safeSummary(c: AppConfig): Record<string, unknown> {
     postingWindow: `${c.window.startText}-${c.window.endText} Asia/Kuala_Lumpur`,
     maxAttempts: c.retry.maxAttempts,
     retryDelaysMinutes: c.retry.delaysMinutes,
-    image: `${c.dashboard.width}x${c.dashboard.height}`,
+    image: `${c.dashboard.width}x${c.dashboard.height} ${c.dashboard.theme}`,
   };
 }

@@ -63,6 +63,7 @@ export async function generateDashboard(config: AppConfig, opts: GenerateOptions
     sim,
     timestamp: opts.timestamp,
     simulatedLabel: config.dashboard.simulatedLabel,
+    theme: config.dashboard.theme,
     demo: opts.demo,
     thumbnailDataUri,
     width: config.dashboard.width,

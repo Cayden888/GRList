@@ -32,7 +32,7 @@ describe('dashboard SVG', () => {
 
   it('shows English and Chinese titles', () => {
     const { svg } = svgFor();
-    expect(svg).toContain('Sample Item');
+    expect(svg.toLowerCase()).toContain('sample item');
     expect(svg).toContain('示例项目');
     expect(svg).toContain(FONT_STACK.split(',')[0]);
   });
@@ -74,8 +74,27 @@ describe('dashboard SVG', () => {
 
   it('escapes special characters from the sheet', () => {
     const { svg } = svgFor({ titleEn: 'A & B <script>' });
-    expect(svg).toContain('A &amp; B &lt;script&gt;');
-    expect(svg).not.toContain('<script>');
+    expect(svg.toLowerCase()).toContain('a &amp; b &lt;script&gt;');
+    expect(svg.toLowerCase()).not.toContain('<script>');
+  });
+});
+
+describe('themes', () => {
+  it('both themes render every label, the disclosure and no invalid values', () => {
+    for (const theme of ['gamer', 'clean'] as const) {
+      const item = sampleItem();
+      const sim = simulateDashboard(item, 'theme-test', OPTS);
+      const svg = buildDashboardSvg({ item, sim, timestamp: TS, simulatedLabel: 'SIMULATED DATA', theme });
+      for (const label of ['CURRENT VALUE', 'BASELINE VALUE', 'LIMIT (24H)', 'VOLUME (24H)', 'OUTPUT (24H)', 'EVENT COUNT (24H)', 'SIMULATED DATA', 'not real measurements']) {
+        expect(svg, `${theme}: ${label}`).toContain(label);
+      }
+      expect(svg).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('rejects an unknown theme name in settings', () => {
+    expect(() => testConfig({ DASHBOARD_THEME: 'pink' })).toThrow(/DASHBOARD_THEME/);
+    expect(testConfig({}).dashboard.theme).toBe('gamer');
   });
 });
 
