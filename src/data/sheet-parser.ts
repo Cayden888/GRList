@@ -13,6 +13,7 @@ import type { DashboardItem, NumericRange, RowIssue, SheetParseResult } from './
 
 export const COLUMNS = {
   imageName: 'Image_Name',
+  imageLink: 'Image_Link',
   titleEn: 'Title_EN',
   titleCn: 'Title_CN',
   dataSource: 'Data_Source',
@@ -80,6 +81,30 @@ function slug(text: string): string {
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
+}
+
+/**
+ * Turns a Google Drive share link into a direct image download link.
+ * Accepts …/file/d/ID/view, …/open?id=ID and …/uc?id=ID. Other links are returned unchanged.
+ * The Drive file must be shared as "Anyone with the link can view".
+ */
+export function toDirectImageUrl(url: string): string {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return url;
+  }
+  if (!/(^|\.)drive\.google\.com$|^docs\.google\.com$/.test(u.hostname)) return url;
+  const id = /\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(u.pathname)?.[1] ?? u.searchParams.get('id');
+  if (!id || !/^[A-Za-z0-9_-]{10,}$/.test(id)) return url;
+  return `https://drive.usercontent.google.com/download?id=${id}&export=view`;
+}
+
+/** Picture link: Image_Link if given, otherwise Image_Name when it is a link. */
+function imageUrlFor(link: string | undefined, name: string | undefined): string | undefined {
+  for (const v of [link, name]) if (v && isHttpUrl(v)) return toDirectImageUrl(v);
+  return undefined;
 }
 
 export function isHttpUrl(value: string): boolean {
@@ -232,7 +257,7 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
       id,
       rowNumber,
       imageName,
-      imageUrl: imageName && isHttpUrl(imageName) ? imageName : undefined,
+      imageUrl: imageUrlFor(textCell(cell(COLUMNS.imageLink)), imageName),
       titleEn,
       titleCn,
       dataSource: meaningfulText(cell(COLUMNS.dataSource)),

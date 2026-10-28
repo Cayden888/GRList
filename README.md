@@ -93,6 +93,7 @@ How the sheet is read:
 | `Time_Since_Last_Update` | A number = minutes; short text shown as-is; blank → a simulated duration (3–45 min by default). |
 | `Random_Timer_Seconds` | Read and validated, but intentionally **not drawn**: a countdown would suggest something is about to happen. |
 | `Image_Name` | Used for the row's id. If it is an `http(s)` image link, it is shown as a small thumbnail; otherwise it is just a name. |
+| `Image_Link` (optional column) | A picture for that row: a Google Drive share link (file shared as "Anyone with the link") or any direct image link. Used instead of `Image_Name` for the picture, so `Image_Name` can stay a plain name/number. |
 
 Columns are matched by header name (order doesn't matter), quoted commas and Chinese text are fine, empty rows are skipped. **About your current sheet:** every row has the same ranges, `Title_CN` is empty, and the Volume / Output / Event Count columns are blank, so images show Current Value, Baseline, Difference and a simulated Time Since Last Update. Fill those columns in and their cards appear automatically.
 

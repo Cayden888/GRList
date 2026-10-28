@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseNumberCell, parseSheetCsv, SheetFormatError } from '../src/data/sheet-parser.js';
+import { parseNumberCell, parseSheetCsv, SheetFormatError, toDirectImageUrl } from '../src/data/sheet-parser.js';
 import { resolveCsvUrl } from '../src/data/sheet-reader.js';
 
 const HEADER =
@@ -135,5 +135,23 @@ describe('Limit (24H) columns', () => {
     const r = parseSheetCsv(csv);
     expect(r.items[0]!.limit24h).toEqual({ min: 54925, max: 62150 });
     expect(r.items[1]!.limit24h).toBeUndefined();
+  });
+});
+
+describe('pictures', () => {
+  it('converts Google Drive share links to direct image links', () => {
+    const direct = 'https://drive.usercontent.google.com/download?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO&export=view';
+    expect(toDirectImageUrl('https://drive.google.com/file/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO/view?usp=drive_link')).toBe(direct);
+    expect(toDirectImageUrl('https://drive.google.com/open?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO')).toBe(direct);
+    expect(toDirectImageUrl('https://i.imgur.com/AbC123x.png')).toBe('https://i.imgur.com/AbC123x.png');
+  });
+
+  it('uses Image_Link when present, keeping Image_Name as a plain name', () => {
+    const csv = 'Image_Name,Image_Link,Title_EN,Current_Value_Min,Current_Value_Max\n1,https://drive.google.com/file/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO/view,A,1,2\n2,,B,1,2\nhttps://i.imgur.com/x1.png,,C,1,2\n';
+    const r = parseSheetCsv(csv);
+    expect(r.items[0]!.imageName).toBe('1');
+    expect(r.items[0]!.imageUrl).toContain('drive.usercontent.google.com');
+    expect(r.items[1]!.imageUrl).toBeUndefined();
+    expect(r.items[2]!.imageUrl).toBe('https://i.imgur.com/x1.png');
   });
 });
