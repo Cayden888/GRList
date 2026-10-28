@@ -37,6 +37,9 @@ export const COLUMNS = {
   timer: 'Random_Timer_Seconds',
 } as const;
 
+/** Other header names accepted for the picture column (matched case-insensitively). */
+export const IMAGE_LINK_ALIASES = [COLUMNS.imageLink, 'Link', 'Image_URL', 'Image_Url', 'Picture', 'Picture_Link'] as const;
+
 const REQUIRED_HEADERS = [COLUMNS.currentMin, COLUMNS.currentMax];
 
 /** Words that mean "no real value here" for the text fields. */
@@ -162,6 +165,14 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
       const i = index.get(col.toLowerCase());
       return i === undefined ? undefined : row[i];
     };
+    /** First non-blank cell among the accepted picture-column names. */
+    const imageLinkCell = (): string | undefined => {
+      for (const name of IMAGE_LINK_ALIASES) {
+        const v = textCell(cell(name));
+        if (v) return v;
+      }
+      return undefined;
+    };
     const rowIssues: RowIssue[] = [];
     const warn = (message: string) => rowIssues.push({ rowNumber, severity: 'warning', message });
     const fail = (message: string) => rowIssues.push({ rowNumber, severity: 'error', message });
@@ -253,11 +264,17 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
     const id = seen === 0 ? baseId : `${baseId}-${seen + 1}`;
     if (seen > 0) issues.push({ rowNumber, severity: 'warning', message: `Duplicate item "${baseId}" – using id "${id}"` });
 
+    const rawImageLink = imageLinkCell();
+    if (rawImageLink) {
+      if (!isHttpUrl(rawImageLink)) issues.push({ rowNumber, severity: 'warning', message: 'Picture link is not a web link (must start with https://) – no picture' });
+      else if (/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(rawImageLink)) issues.push({ rowNumber, severity: 'warning', message: 'Picture link points to a Drive folder, not a file – open the image and use its own share link' });
+    }
+
     items.push({
       id,
       rowNumber,
       imageName,
-      imageUrl: imageUrlFor(textCell(cell(COLUMNS.imageLink)), imageName),
+      imageUrl: imageUrlFor(imageLinkCell(), imageName),
       titleEn,
       titleCn,
       dataSource: meaningfulText(cell(COLUMNS.dataSource)),

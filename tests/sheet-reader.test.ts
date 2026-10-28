@@ -28,6 +28,30 @@ describe('Google Sheet CSV parsing', () => {
     expect(first.imageUrl).toBeUndefined();
   });
 
+  it('reads the picture from a column simply called "Link" (Drive file link)', () => {
+    const csv =
+      'Image_Name,Title_EN,Current_Value_Min,Current_Value_Max,Link\n' +
+      '1,A,95,99.5,https://drive.google.com/file/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO/view?usp=drive_link\n' +
+      '2,B,95,99.5,\n';
+    const r = parseSheetCsv(csv);
+    expect(r.items[0]!.imageUrl).toBe('https://drive.usercontent.google.com/download?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO&export=view');
+    expect(r.items[0]!.imageName).toBe('1');
+    expect(r.items[1]!.imageUrl).toBeUndefined();
+    expect(r.issues).toHaveLength(0);
+  });
+
+  it('warns when the picture link is a Drive folder or not a web link', () => {
+    const csv =
+      'Title_EN,Current_Value_Min,Current_Value_Max,Image_Link\n' +
+      'A,1,2,https://drive.google.com/drive/u/0/folders/1Xaro4-wS-LTeZ97xhGg5QWv6JSSINM5r\n' +
+      'B,1,2,my-picture.png\n';
+    const r = parseSheetCsv(csv);
+    expect(r.items).toHaveLength(2);
+    expect(r.issues.map((i) => i.message).join(' ')).toMatch(/folder/);
+    expect(r.issues.map((i) => i.message).join(' ')).toMatch(/not a web link/);
+    expect(r.items[1]!.imageUrl).toBeUndefined();
+  });
+
   it('reads columns by header name, in any order, ignoring case and extra columns', () => {
     const csv = 'extra,current_value_max,TITLE_EN,Current_Value_Min\nx,10,Hello,1\n';
     const r = parseSheetCsv(csv);
