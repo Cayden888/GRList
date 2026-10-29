@@ -4,7 +4,7 @@ Once a day, at a random time between **10:30 AM and 5:00 PM Malaysia time**, thi
 
 1. reads your public Google Sheet (configuration ranges, not real data),
 2. picks one row and generates **simulated** numbers inside the min/max ranges,
-3. draws a 1600 × 900 dashboard image (SVG → PNG with Sharp) with a simulated 24-hour line chart (design set by `DASHBOARD_THEME`: `pro` default, `gamer` or `clean`),
+3. draws a 1600 × 900 dashboard image (SVG → PNG with Sharp) with a simulated 24-hour line chart (design set by `DASHBOARD_THEME`: `control` default, `pro`, `gamer` or `clean`),
 4. posts it to your Telegram group,
 5. records everything in Supabase so restarts never lose or double the day's post.
 

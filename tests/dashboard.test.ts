@@ -81,7 +81,7 @@ describe('dashboard SVG', () => {
 
 describe('themes', () => {
   it('all themes render every label, the disclosure and no invalid values', () => {
-    for (const theme of ['pro', 'gamer', 'clean'] as const) {
+    for (const theme of ['control', 'pro', 'gamer', 'clean'] as const) {
       const item = sampleItem();
       const sim = simulateDashboard(item, 'theme-test', OPTS);
       const svg = buildDashboardSvg({ item, sim, timestamp: TS, simulatedLabel: 'SIMULATED DATA', theme });
@@ -94,7 +94,7 @@ describe('themes', () => {
 
   it('rejects an unknown theme name in settings', () => {
     expect(() => testConfig({ DASHBOARD_THEME: 'pink' })).toThrow(/DASHBOARD_THEME/);
-    expect(testConfig({}).dashboard.theme).toBe('pro');
+    expect(testConfig({}).dashboard.theme).toBe('control');
   });
 });
 
