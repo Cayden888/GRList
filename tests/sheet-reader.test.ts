@@ -179,3 +179,13 @@ describe('pictures', () => {
     expect(r.items[2]!.imageUrl).toBe('https://i.imgur.com/x1.png');
   });
 });
+
+import { imageUrlCandidates } from '../src/dashboard/render.js';
+describe('Drive picture addresses', () => {
+  it('tries backup public addresses for Drive pictures only', () => {
+    const c = imageUrlCandidates('https://drive.usercontent.google.com/download?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO&export=view');
+    expect(c).toHaveLength(3);
+    expect(c[1]).toContain('lh3.googleusercontent.com/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO');
+    expect(imageUrlCandidates('https://example.com/a.png')).toEqual(['https://example.com/a.png']);
+  });
+});

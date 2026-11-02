@@ -175,15 +175,13 @@ export function buildControlSvg(input: RenderInput): string {
 
   // item identity
   const primary = item.titleEn ?? item.titleCn ?? 'Dashboard';
-  out.push(`<clipPath id="imgClip"><rect x="${hx}" y="16" width="32" height="32" rx="4"/></clipPath>`);
-  if (input.thumbnailDataUri) {
-    out.push(`<image x="${hx}" y="16" width="32" height="32" href="${x(input.thumbnailDataUri)}" clip-path="url(#imgClip)" preserveAspectRatio="xMidYMid slice"/>`);
-  } else {
+  // With a picture, it is shown large in the main panel's corner; otherwise a letter tile sits here.
+  if (!input.thumbnailDataUri) {
     out.push(`<rect x="${hx}" y="16" width="32" height="32" rx="4" fill="url(#tile)"/>`);
     out.push(t(hx + 16, 38, [...primary.trim()][0]?.toUpperCase() ?? '•', 15, { weight: 600, anchor: 'middle', color: C.text }));
+    out.push(`<rect x="${hx}" y="16" width="32" height="32" rx="4" fill="none" stroke="${C.border}" stroke-width="1"/>`);
+    hx += 44;
   }
-  out.push(`<rect x="${hx}" y="16" width="32" height="32" rx="4" fill="none" stroke="${C.border}" stroke-width="1"/>`);
-  hx += 44;
 
   const meta: Array<[string, string]> = [];
   if (item.dataSource) meta.push(['SOURCE', item.dataSource]);
@@ -237,10 +235,7 @@ export function buildControlSvg(input: RenderInput): string {
     const py = top;
     out.push(panel(px, py, mainW, row1H, main.lab, `REFERENCE RANGE  ${formatNumber(main.r.min, main.v.decimals)} – ${formatNumber(main.r.max, main.v.decimals)}`));
     const val = formatValue(main.v);
-    const big = Math.min(104, Math.floor((mainW * 0.44) / (0.6 * Math.max(4, val.length))));
     const gaugeY = py + row1H - 74;
-    const numY = py + 44 + (gaugeY - 40 - (py + 44)) / 2 + big * 0.36;
-    out.push(t(px + PAD - 3, numY, val, big, { mono: true, weight: 500 }));
     // derived readouts (all from the reading and its configured range)
     const span = main.r.max - main.r.min;
     const readouts: Array<[string, string]> = [];
@@ -250,6 +245,33 @@ export function buildControlSvg(input: RenderInput): string {
       readouts.push(['BELOW MAX', formatNumber(main.r.max - main.v.value, main.v.decimals)]);
     }
     const colWs = [184, 140, 140];
+    if (input.thumbnailDataUri) {
+      // Picture in the top-left corner; number on top and readouts underneath, beside it.
+      const areaTop = py + 44 + 20;
+      const P = Math.round(Math.min(168, gaugeY - 52 - areaTop));
+      const ix = px + PAD;
+      out.push(`<clipPath id="imgClip"><rect x="${ix}" y="${areaTop}" width="${P}" height="${P}" rx="6"/></clipPath>`);
+      out.push(`<rect x="${ix}" y="${areaTop}" width="${P}" height="${P}" rx="6" fill="${C.bg2}"/>`);
+      out.push(`<image x="${ix}" y="${areaTop}" width="${P}" height="${P}" href="${x(input.thumbnailDataUri)}" clip-path="url(#imgClip)" preserveAspectRatio="xMidYMid slice"/>`);
+      out.push(`<rect x="${ix + 0.5}" y="${areaTop + 0.5}" width="${P - 1}" height="${P - 1}" rx="6" fill="none" stroke="${C.border}" stroke-width="1"/>`);
+      const nx = ix + P + 32;
+      const avail = px + mainW - PAD - nx;
+      const big = Math.min(100, Math.floor(avail / (0.6 * Math.max(4, val.length))));
+      out.push(t(nx - 3, areaTop + big * 0.74, val, big, { mono: true, weight: 500 }));
+      let cx = nx;
+      for (const [ri, [l, v]] of readouts.entries()) {
+        const colW = colWs[ri]!;
+        if (cx + colW > px + mainW - PAD + 20) break;
+        if (ri > 0) out.push(vline(cx - 16, areaTop + P - 54, areaTop + P));
+        out.push(label(cx, areaTop + P - 36, l, { size: 11, color: C.faint }));
+        out.push(t(cx, areaTop + P - 2, v, 24, { mono: true, weight: 500 }));
+        cx += colW;
+      }
+      out.push(gauge(px + PAD + 8, gaugeY, mainW - PAD * 2 - 16, main.v, main.r));
+    } else {
+    const big = Math.min(104, Math.floor((mainW * 0.44) / (0.6 * Math.max(4, val.length))));
+    const numY = py + 44 + (gaugeY - 40 - (py + 44)) / 2 + big * 0.36;
+    out.push(t(px + PAD - 3, numY, val, big, { mono: true, weight: 500 }));
     let rx2 = px + mainW - PAD - colWs.slice(0, readouts.length).reduce((a, b) => a + b, 0);
     if (rx2 > px + PAD + monoW(val, big) + 24) {
       for (const [ri, [l, v]] of readouts.entries()) {
@@ -261,6 +283,7 @@ export function buildControlSvg(input: RenderInput): string {
       }
     }
     out.push(gauge(px + PAD + 8, gaugeY, mainW - PAD * 2 - 16, main.v, main.r));
+    }
   }
 
   // ============ ValueComparison ============
