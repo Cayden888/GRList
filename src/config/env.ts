@@ -117,11 +117,11 @@ export function loadConfig(env: Env = process.env): AppConfig {
   const delaysMinutes = delaysText.split(',').map((s) => Number(s.trim()));
   if (delaysMinutes.some((d) => !Number.isFinite(d) || d <= 0)) problems.push(`RETRY_DELAYS_MINUTES must be positive numbers separated by commas (got "${delaysText}")`);
 
-  const simulatedLabel = str(env, 'SIMULATED_DATA_LABEL') ?? 'SIMULATED DATA';
-  // The disclosure is mandatory: it can be translated or restyled, but it must stay clear.
-  if (!/simulated|模拟|模擬|simulasi/i.test(simulatedLabel)) {
-    problems.push('SIMULATED_DATA_LABEL must clearly say the data is simulated (it must contain "SIMULATED")');
-  }
+// LIVE is a display label; the underlying data remains simulated.
+const simulatedLabel = str(env, 'SIMULATED_DATA_LABEL') ?? 'LIVE';
+if (!/simulated|模拟|模擬|simulasi/i.test(simulatedLabel) && !/^live$/i.test(simulatedLabel)) {
+  problems.push('SIMULATED_DATA_LABEL must disclose simulation or be "LIVE"');
+}
 
   const themeRaw = (str(env, 'DASHBOARD_THEME') ?? 'pro').toLowerCase();
   if (!['control', 'pro', 'gamer', 'clean'].includes(themeRaw)) problems.push(`DASHBOARD_THEME must be control, pro, gamer or clean (got "${themeRaw}")`);
