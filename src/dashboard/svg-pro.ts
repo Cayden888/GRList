@@ -55,7 +55,7 @@ function cardLabel(px: number, py: number, content: string, maxW: number, dot?: 
 }
 
 /** Thin bar showing where a value sits inside its configured min–max. */
-function rangeBar(px: number, py: number, w: number, value: SimulatedValue, range: NumericRange, color: string): string {
+function rangeBar(px: number, py: number, w: number, value: SimulatedValue, range: NumericRange, color: string, showMinMax = true): string {
   const span = range.max - range.min;
   const frac = span > 0 ? Math.min(1, Math.max(0, (value.value - range.min) / span)) : 1;
   const mx = px + frac * w;
@@ -63,8 +63,9 @@ function rangeBar(px: number, py: number, w: number, value: SimulatedValue, rang
     `<rect x="${r(px)}" y="${r(py)}" width="${r(w)}" height="6" rx="3" fill="${C.grid}"/>` +
     `<rect x="${r(px)}" y="${r(py)}" width="${r(Math.max(6, frac * w))}" height="6" rx="3" fill="${color}" fill-opacity="0.85"/>` +
     `<circle cx="${r(mx)}" cy="${r(py + 3)}" r="7" fill="${C.bg}" stroke="${color}" stroke-width="3"/>` +
+    (!showMinMax ? '' :
     t(px, py + 30, `MIN ${formatNumber(range.min, value.decimals)}`, 13, { color: C.faint, weight: 600, spacing: 1 }) +
-    t(px + w, py + 30, `MAX ${formatNumber(range.max, value.decimals)}`, 13, { color: C.faint, weight: 600, spacing: 1, anchor: 'end' })
+    t(px + w, py + 30, `MAX ${formatNumber(range.max, value.decimals)}`, 13, { color: C.faint, weight: 600, spacing: 1, anchor: 'end' }))
   );
 }
 
@@ -337,7 +338,7 @@ export function buildProSvg(input: RenderInput): string {
       out.push(cardLabel(bx + 24, by + 36, b.lab, bw - 48, b.color));
       const v = fitText(formatValue(b.v), bw - 48, 42, 26);
       out.push(t(bx + 24, by + 88, v.text, v.size, { weight: 700 }));
-      if (b.range) out.push(rangeBar(bx + 24, by + 108, bw - 48, b.v, b.range, b.color));
+      if (b.range) out.push(rangeBar(bx + 24, by + 116, bw - 48, b.v, b.range, b.color, false));
     });
   }
 
