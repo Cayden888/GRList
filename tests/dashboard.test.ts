@@ -167,9 +167,9 @@ describe('labels from Supabase', () => {
   it('overrides only filled-in rows and ignores unknown keys', () => {
     const base = testConfig({}).dashboard.labels;
     const out = applyLabelRows(base, [
-      { key: 'current_value', label: '  Live   Score ' },
-      { key: 'volume_24h', label: '' },
-      { key: 'something_else', label: 'X' },
+      { previous_header: 'Current_Value_Min / Current_Value_Max', new_header: '  Live   Score ' },
+      { previous_header: 'Volume_24H_Min / Volume_24H_Max', new_header: '' },
+      { previous_header: 'Something_Else', new_header: 'X' },
     ]);
     expect(out.current).toBe('Live Score');
     expect(out.volume).toBe(base.volume);

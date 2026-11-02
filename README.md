@@ -99,7 +99,7 @@ Columns are matched by header name (order doesn't matter), quoted commas and Chi
 
 ### Changing the card titles on the image
 
-**Easiest: in Supabase.** Run `supabase/migrations/20261102000000_dashboard_labels.sql` once in **SQL Editor**. Then open **Table Editor → dashboard_labels** and type new words in the `label` column (double-click a cell, Enter to save). The next image uses them; clear a cell to go back to the default. Text is shown in capitals.
+**Easiest: in Supabase.** Run `supabase/migrations/20261102000000_dashboard_labels.sql` once in **SQL Editor**. Then open **Table Editor → dashboard_labels**: `previous_header` shows the sheet columns each card comes from, and you type the new title in `new_header` (double-click a cell, Enter to save). The next image uses them; clear a cell to go back to the default. Text is shown in capitals.
 
 Or set any of these in **Railway → Variables** (and, for the GitHub buttons, in **GitHub → Settings → Secrets and variables → Actions → Variables**): `LABEL_CURRENT_VALUE`, `LABEL_BASELINE_VALUE`, `LABEL_LIMIT`, `LABEL_VOLUME`, `LABEL_OUTPUT`, `LABEL_EVENT_COUNT`. Text is shown in capitals. Delete the variable to go back to the default title.
 
