@@ -83,7 +83,7 @@ jobs:
           if [ -n "$INPUT_DATE" ]; then DATE_ARGS=(--date "$INPUT_DATE"); fi
           # Show the result on the run's Summary page as well as in the log.
           exec > >(tee -a result.txt) 2>&1
-          trap 'sleep 1; { echo "### Result: $INPUT_ACTION"; echo; echo "\`\`\`"; sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" result.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"; grep -E "\[(ERROR|WARN)\]" result.txt | sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" | cut -c1-900 | while IFS= read -r l; do echo "::warning::$l"; done' EXIT
+          trap 'sleep 1; { echo "### Result: $INPUT_ACTION"; echo; echo "\`\`\`"; sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" result.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"; grep -v -E "^\s*$|npm (warn|notice)" result.txt | sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" | tail -n 40 | cut -c1-900 | while IFS= read -r l; do echo "::notice::$l"; done' EXIT
           case "$INPUT_ACTION" in
             preview)          npx tsx src/cli.ts preview "${DATE_ARGS[@]}" ;;
             preview-all-rows) npx tsx src/cli.ts preview --all "${DATE_ARGS[@]}" ;;
