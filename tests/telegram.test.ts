@@ -106,3 +106,14 @@ describe('caption from Supabase', () => {
     expect(buildCaption({ timestampText: 'T', test: true, texts })).toBe('🧪 Test post – Daily Dashboard\nAs of T');
   });
 });
+
+describe('caption placeholders', () => {
+  it('fills values, drops lines with missing values, supports multi-line cells', () => {
+    const c = buildCaption({
+      timestampText: 'T',
+      texts: { title: '🎮 {title}', message: 'Current: {current}\nLimit: {limit}\nBaseline: {baseline}', footer: 'Join us!' },
+      values: { title: 'Ways of the Qilin', current: '97.99', baseline: '95.43' },
+    });
+    expect(c).toBe('🎮 Ways of the Qilin\nCurrent: 97.99\nBaseline: 95.43\nUpdated: T\nJoin us!');
+  });
+});

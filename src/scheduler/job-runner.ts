@@ -16,6 +16,7 @@ import { generateDashboard, type GeneratedDashboard } from '../dashboard/generat
 import { summarizeValues } from '../simulation/metrics.js';
 import { buildCaption, TelegramError, type TelegramSender } from '../telegram/client.js';
 import { loadCaptionTexts } from '../database/labels.js';
+import { captionValues } from '../dashboard/caption-values.js';
 import { log } from '../utils/logger.js';
 import { formatMalaysiaDisplay, formatMalaysiaDateTime, startOfNextMalaysiaDay } from '../utils/time.js';
 
@@ -100,7 +101,7 @@ export async function runDailyJob(deps: JobDeps, job: ScheduleRow): Promise<JobO
     return 'lost-claim';
   }
 
-  const caption = config.telegram.captionEnabled ? buildCaption({ timestampText: formatMalaysiaDisplay(deps.now()), texts: await loadCaptionTexts(config) }) : undefined;
+  const caption = config.telegram.captionEnabled ? buildCaption({ timestampText: formatMalaysiaDisplay(deps.now()), texts: await loadCaptionTexts(config), values: captionValues(generated.item, generated.sim, job.malaysia_date) }) : undefined;
   try {
     const { messageId } = await deps.sender.sendPhoto(generated.pngPath, caption);
     const saved = await repo.complete(job.id, workerId, messageId);

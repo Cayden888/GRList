@@ -105,7 +105,7 @@ Or set any of these in **Railway → Variables** (and, for the GitHub buttons, i
 
 ### Changing the text under the Telegram picture
 
-Run `supabase/migrations/20261102010000_dashboard_caption.sql` once in Supabase **SQL Editor**, then edit **Table Editor → dashboard_caption → text**. `{time}` becomes the post time, an empty cell uses the default wording, and a single `-` leaves that line out.
+Run `supabase/migrations/20261102010000_dashboard_caption.sql` once in Supabase **SQL Editor**, then edit **Table Editor → dashboard_caption → text**. Placeholders such as `{title}`, `{current}`, `{baseline}`, `{difference}`, `{limit}`, `{volume}`, `{output}`, `{event_count}`, `{region}`, `{date}`, `{time}` are filled with that post's (simulated) values; a line whose value is missing that day is left out. An empty cell uses the default wording, a single `-` leaves the part out, and one cell may hold several lines.
 
 ## 3. Set up the Telegram bot
 

@@ -45,20 +45,40 @@ export function truncateCaption(caption: string): string {
 }
 
 /** Caption wording. Each part can be changed in the Supabase "dashboard_caption" table. */
-export interface CaptionTexts { title: string; testTitle: string; message: string; updated: string }
+export interface CaptionTexts { title: string; testTitle: string; message: string; updated: string; footer: string }
 export const DEFAULT_CAPTION: CaptionTexts = {
   title: '📊 Daily Dashboard',
   testTitle: '🧪 Test post – Daily Dashboard',
   message: 'Simulated data for demonstration purposes.',
   updated: 'Updated: {time}',
+  footer: '-',
 };
 
-export function buildCaption(opts: { timestampText: string; test?: boolean; texts?: Partial<CaptionTexts> }): string {
+/**
+ * Fills {placeholders}: {time} plus anything in `values` (e.g. {title}, {current}).
+ * A line whose placeholder has no value today (e.g. {limit} when the sheet leaves
+ * it blank) is dropped, so the caption never shows "{limit}" or an empty number.
+ */
+export function buildCaption(opts: { timestampText: string; test?: boolean; texts?: Partial<CaptionTexts>; values?: Record<string, string> }): string {
   const t = { ...DEFAULT_CAPTION, ...opts.texts };
-  const lines = [opts.test ? t.testTitle : t.title, t.message, t.updated.replace(/\{time\}/gi, opts.timestampText)]
-    .map((l) => l.trim())
-    .filter((l) => l !== '' && l !== '-');
-  return truncateCaption(lines.join('\n'));
+  const values: Record<string, string> = { ...opts.values, time: opts.timestampText };
+  const blocks = [opts.test ? t.testTitle : t.title, t.message, t.updated, t.footer]
+    .map((b) => b.trim())
+    .filter((b) => b !== '' && b !== '-');
+  const lines: string[] = [];
+  for (const block of blocks) {
+    for (const raw of block.split('\n')) {
+      let missing = false;
+      const filled = raw.replace(/\{([a-z_]+)\}/gi, (whole, key: string) => {
+        const v = values[key.toLowerCase()];
+        if (v === undefined) { missing = true; return whole; }
+        return v;
+      });
+      if (!missing) lines.push(filled.trimEnd());
+    }
+  }
+  // collapse runs of empty lines left by removed lines
+  return truncateCaption(lines.join('\n').replace(/\n{3,}/g, '\n\n').trim());
 }
 
 type FetchLike = typeof fetch;

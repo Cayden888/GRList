@@ -64,6 +64,7 @@ const CAPTION_KEYS: Record<string, keyof CaptionTexts> = {
   '2_test_title': 'testTitle',
   '3_message': 'message',
   '4_updated': 'updated',
+  '5_footer': 'footer',
 };
 
 /** Pure merge, exported for tests. Blank = default, "-" = leave the line out. */
@@ -71,8 +72,8 @@ export function applyCaptionRows(rows: Array<{ line: string | null; text: string
   const out: Partial<CaptionTexts> = {};
   for (const r of rows) {
     const field = CAPTION_KEYS[(r.line ?? '').trim().toLowerCase()];
-    const text = (r.text ?? '').replace(/\r\n/g, '\n').trim();
-    if (field && text) out[field] = text.slice(0, 600);
+    const text = (r.text ?? '').replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim();
+    if (field && text) out[field] = text.slice(0, 900);
   }
   return out;
 }
