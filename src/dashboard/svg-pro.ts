@@ -197,7 +197,7 @@ export function buildProSvg(input: RenderInput): string {
         return card(px, py, w, h) +
           cardLabel(px + 24, py + 36, L.limit.toUpperCase(), w - 48, C.blue) +
           t(px + 24, py + 42 + fs + 8, formatValue(v), fs, { weight: 700 }) +
-          rangeBar(px + 24, py + h - 52, w - 48, v, item.limit24h!, C.blue);
+          rangeBar(px + 24, py + h - 44, w - 48, v, item.limit24h!, C.blue, false);
       },
     });
   }
