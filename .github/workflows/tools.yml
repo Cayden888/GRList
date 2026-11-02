@@ -71,7 +71,7 @@ jobs:
 
       - name: Install Chinese fonts
         if: startsWith(inputs.action, 'preview') || inputs.action == 'post-test'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk > /dev/null && fc-cache -f
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk fonts-ibm-plex > /dev/null && fc-cache -f
 
       - name: Install packages
         run: npm ci
@@ -83,7 +83,7 @@ jobs:
           if [ -n "$INPUT_DATE" ]; then DATE_ARGS=(--date "$INPUT_DATE"); fi
           # Show the result on the run's Summary page as well as in the log.
           exec > >(tee -a result.txt) 2>&1
-          trap 'sleep 1; { echo "### Result: $INPUT_ACTION"; echo; echo "\`\`\`"; sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" result.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"' EXIT
+          trap 'sleep 1; { echo "### Result: $INPUT_ACTION"; echo; echo "\`\`\`"; sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" result.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"; grep -E "\[(ERROR|WARN)\]" result.txt | sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" | cut -c1-900 | while IFS= read -r l; do echo "::warning::$l"; done' EXIT
           case "$INPUT_ACTION" in
             preview)          npx tsx src/cli.ts preview "${DATE_ARGS[@]}" ;;
             preview-all-rows) npx tsx src/cli.ts preview --all "${DATE_ARGS[@]}" ;;
