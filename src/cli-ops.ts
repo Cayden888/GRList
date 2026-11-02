@@ -33,6 +33,30 @@ async function status(config: AppConfig, args: Args): Promise<number> {
   return 0;
 }
 
+/** Shows the shape of a chat ID without printing it whole (GitHub hides secrets as ***). */
+export function describeChatId(id: string): string {
+  const t = id.trim();
+  if (t.length <= 4) return `"${t}"`;
+  return `"${t.slice(0, 3)}…${t.slice(-2)}" (${t.length} characters${t.startsWith('-') ? '' : ', NO minus sign'})`;
+}
+
+async function explainChatNotFound(tg: TelegramClient, chatId: string): Promise<void> {
+  try {
+    const me = await tg.getMe();
+    const seen = new Map<string, string>();
+    for (const u of await tg.getUpdates()) {
+      for (const key of ['message', 'my_chat_member', 'channel_post']) {
+        const chat = (u[key] as { chat?: { id: number; title?: string } } | undefined)?.chat;
+        if (chat) seen.set(String(chat.id), chat.title ?? '(private chat)');
+      }
+    }
+    log.error(`Bot @${me.username ?? me.first_name} cannot find chat ${describeChatId(chatId)}.`);
+    if (seen.size) log.error(`Chats this bot can see: ${[...seen].map(([id, title]) => `${id} (${title})`).join(', ')}. Put one of these numbers in TELEGRAM_CHAT_ID.`);
+  } catch {
+    // diagnostics only
+  }
+}
+
 async function telegramChatId(config: AppConfig): Promise<number> {
   if (!config.telegram.botToken) {
     console.error('Set TELEGRAM_BOT_TOKEN first (from @BotFather).');
@@ -73,8 +97,14 @@ async function postTest(config: AppConfig, args: Args): Promise<number> {
   const sheet = await readSheet(config);
   const g = await generateDashboard(config, { malaysiaDate: date, items: sheet.items, itemId: str(args, 'item'), timestamp: new Date(), fileTag: '-test' });
   const caption = config.telegram.captionEnabled ? buildCaption({ timestampText: formatMalaysiaDisplay(new Date()), test: true }) : undefined;
-  log.info(`Sending test image to Telegram chat ${config.telegram.chatId} (explicit --confirm given)`);
-  const { messageId } = await tg.sendPhoto(g.pngPath, caption);
+  log.info(`Sending test image to Telegram chat ${describeChatId(config.telegram.chatId!)} (explicit --confirm given)`);
+  let messageId: number;
+  try {
+    ({ messageId } = await tg.sendPhoto(g.pngPath, caption));
+  } catch (e) {
+    if (/chat not found/i.test((e as Error).message)) await explainChatNotFound(tg, config.telegram.chatId!);
+    throw e;
+  }
   console.log(`Test image sent. Telegram message id: ${messageId}. File: ${path.relative(process.cwd(), g.pngPath)}`);
   console.log('This test does not count as the daily post and does not change the schedule.');
   if (hasDatabase(config)) {
