@@ -161,3 +161,17 @@ describe('custom labels', () => {
     expect(svg).not.toContain('CURRENT VALUE');
   });
 });
+
+import { applyLabelRows } from '../src/database/labels.js';
+describe('labels from Supabase', () => {
+  it('overrides only filled-in rows and ignores unknown keys', () => {
+    const base = testConfig({}).dashboard.labels;
+    const out = applyLabelRows(base, [
+      { key: 'current_value', label: '  Live   Score ' },
+      { key: 'volume_24h', label: '' },
+      { key: 'something_else', label: 'X' },
+    ]);
+    expect(out.current).toBe('Live Score');
+    expect(out.volume).toBe(base.volume);
+  });
+});

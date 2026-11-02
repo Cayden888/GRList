@@ -9,6 +9,7 @@ import { simulateDashboard, type SimulatedDashboard } from '../simulation/metric
 import { itemSeed } from '../simulation/seed.js';
 import { findItemById, selectItem } from '../simulation/selection.js';
 import { log } from '../utils/logger.js';
+import { loadLabels } from '../database/labels.js';
 import { fetchThumbnail, renderPng } from './render.js';
 import { buildDashboardSvg } from './svg.js';
 
@@ -56,7 +57,10 @@ export async function generateDashboard(config: AppConfig, opts: GenerateOptions
     timeSinceUpdateMaxMinutes: config.simulation.timeSinceUpdateMaxMinutes,
   });
 
-  const thumbnailDataUri = item.imageUrl && !opts.skipThumbnail ? await fetchThumbnail(item.imageUrl) : undefined;
+  const [thumbnailDataUri, labels] = await Promise.all([
+    item.imageUrl && !opts.skipThumbnail ? fetchThumbnail(item.imageUrl) : Promise.resolve(undefined),
+    loadLabels(config),
+  ]);
 
   const svg = buildDashboardSvg({
     item,
@@ -66,7 +70,7 @@ export async function generateDashboard(config: AppConfig, opts: GenerateOptions
     theme: config.dashboard.theme,
     demo: opts.demo,
     thumbnailDataUri,
-    labels: config.dashboard.labels,
+    labels,
     width: config.dashboard.width,
     height: config.dashboard.height,
   });
