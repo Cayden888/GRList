@@ -8,6 +8,7 @@ import type { ResolveAction } from './database/repository.js';
 import { generateDashboard } from './dashboard/generate.js';
 import { summarizeValues } from './simulation/metrics.js';
 import { buildCaption, TelegramClient } from './telegram/client.js';
+import { loadCaptionTexts } from './database/labels.js';
 import { log } from './utils/logger.js';
 import { formatMalaysiaDateTime, formatMalaysiaDisplay, isValidDateString, malaysiaDateString } from './utils/time.js';
 
@@ -96,7 +97,7 @@ async function postTest(config: AppConfig, args: Args): Promise<number> {
   const date = malaysiaDateString(new Date());
   const sheet = await readSheet(config);
   const g = await generateDashboard(config, { malaysiaDate: date, items: sheet.items, itemId: str(args, 'item'), timestamp: new Date(), fileTag: '-test' });
-  const caption = config.telegram.captionEnabled ? buildCaption({ timestampText: formatMalaysiaDisplay(new Date()), test: true }) : undefined;
+  const caption = config.telegram.captionEnabled ? buildCaption({ timestampText: formatMalaysiaDisplay(new Date()), test: true, texts: await loadCaptionTexts(config) }) : undefined;
   log.info(`Sending test image to Telegram chat ${describeChatId(config.telegram.chatId!)} (explicit --confirm given)`);
   let messageId: number;
   try {

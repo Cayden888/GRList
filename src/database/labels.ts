@@ -6,7 +6,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { AppConfig, DashboardLabels } from '../config/env.js';
 import { hasDatabase } from '../config/env.js';
+import type { CaptionTexts } from '../telegram/client.js';
 import { log } from '../utils/logger.js';
+
+function client(config: AppConfig) {
+  return createClient(config.supabase.url!, config.supabase.serviceRoleKey!, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(10_000) }) },
+  });
+}
 
 /** Which card a previous_header (sheet column names) belongs to. */
 const MATCHERS: Array<[RegExp, keyof DashboardLabels]> = [
@@ -38,11 +46,7 @@ export async function loadLabels(config: AppConfig): Promise<DashboardLabels> {
   const base = config.dashboard.labels;
   if (!hasDatabase(config)) return base;
   try {
-    const db = createClient(config.supabase.url!, config.supabase.serviceRoleKey!, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: { fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(10_000) }) },
-    });
-    const { data, error } = await db.from('dashboard_labels').select('previous_header,new_header');
+    const { data, error } = await client(config).from('dashboard_labels').select('previous_header,new_header');
     if (error) {
       const hint = /does not exist|Could not find the table|column/i.test(error.message) ? ' – run supabase/migrations/20261102000000_dashboard_labels.sql in the Supabase SQL editor' : '';
       log.warn(`Card titles not read from Supabase: ${error.message}${hint}`);
@@ -52,5 +56,40 @@ export async function loadLabels(config: AppConfig): Promise<DashboardLabels> {
   } catch (e) {
     log.warn(`Card titles not read from Supabase: ${(e as Error).message}`);
     return base;
+  }
+}
+
+const CAPTION_KEYS: Record<string, keyof CaptionTexts> = {
+  '1_title': 'title',
+  '2_test_title': 'testTitle',
+  '3_message': 'message',
+  '4_updated': 'updated',
+};
+
+/** Pure merge, exported for tests. Blank = default, "-" = leave the line out. */
+export function applyCaptionRows(rows: Array<{ line: string | null; text: string | null }>): Partial<CaptionTexts> {
+  const out: Partial<CaptionTexts> = {};
+  for (const r of rows) {
+    const field = CAPTION_KEYS[(r.line ?? '').trim().toLowerCase()];
+    const text = (r.text ?? '').replace(/\r\n/g, '\n').trim();
+    if (field && text) out[field] = text.slice(0, 600);
+  }
+  return out;
+}
+
+/** Caption wording from the Supabase "dashboard_caption" table; defaults if unavailable. */
+export async function loadCaptionTexts(config: AppConfig): Promise<Partial<CaptionTexts>> {
+  if (!hasDatabase(config)) return {};
+  try {
+    const { data, error } = await client(config).from('dashboard_caption').select('line,text');
+    if (error) {
+      const hint = /does not exist|Could not find the table/i.test(error.message) ? ' – run supabase/migrations/20261102010000_dashboard_caption.sql in the Supabase SQL editor' : '';
+      log.warn(`Caption not read from Supabase: ${error.message}${hint}`);
+      return {};
+    }
+    return applyCaptionRows((data ?? []) as Array<{ line: string | null; text: string | null }>);
+  } catch (e) {
+    log.warn(`Caption not read from Supabase: ${(e as Error).message}`);
+    return {};
   }
 }

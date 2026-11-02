@@ -92,3 +92,17 @@ describe('Telegram client (fully mocked – no real requests)', () => {
     expect(redact('other 987654321:ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ token')).not.toContain('ZZZZ');
   });
 });
+
+import { applyCaptionRows } from '../src/database/labels.js';
+describe('caption from Supabase', () => {
+  it('uses edited lines, {time}, blank = default and "-" = hidden', () => {
+    const texts = applyCaptionRows([
+      { line: '1_title', text: '🔥 Today' },
+      { line: '3_message', text: '-' },
+      { line: '4_updated', text: 'As of {time}' },
+      { line: '2_test_title', text: '' },
+    ]);
+    expect(buildCaption({ timestampText: 'T', texts })).toBe('🔥 Today\nAs of T');
+    expect(buildCaption({ timestampText: 'T', test: true, texts })).toBe('🧪 Test post – Daily Dashboard\nAs of T');
+  });
+});

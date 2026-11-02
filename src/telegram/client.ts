@@ -44,12 +44,20 @@ export function truncateCaption(caption: string): string {
   return chars.length <= CAPTION_LIMIT ? caption : chars.slice(0, CAPTION_LIMIT - 1).join('') + '…';
 }
 
-export function buildCaption(opts: { timestampText: string; test?: boolean }): string {
-  const lines = [
-    opts.test ? '🧪 Test post – Daily Dashboard' : '📊 Daily Dashboard',
-    'Simulated data for demonstration purposes.',
-    `Updated: ${opts.timestampText}`,
-  ];
+/** Caption wording. Each part can be changed in the Supabase "dashboard_caption" table. */
+export interface CaptionTexts { title: string; testTitle: string; message: string; updated: string }
+export const DEFAULT_CAPTION: CaptionTexts = {
+  title: '📊 Daily Dashboard',
+  testTitle: '🧪 Test post – Daily Dashboard',
+  message: 'Simulated data for demonstration purposes.',
+  updated: 'Updated: {time}',
+};
+
+export function buildCaption(opts: { timestampText: string; test?: boolean; texts?: Partial<CaptionTexts> }): string {
+  const t = { ...DEFAULT_CAPTION, ...opts.texts };
+  const lines = [opts.test ? t.testTitle : t.title, t.message, t.updated.replace(/\{time\}/gi, opts.timestampText)]
+    .map((l) => l.trim())
+    .filter((l) => l !== '' && l !== '-');
   return truncateCaption(lines.join('\n'));
 }
 

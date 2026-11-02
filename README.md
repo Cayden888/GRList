@@ -103,6 +103,10 @@ Columns are matched by header name (order doesn't matter), quoted commas and Chi
 
 Or set any of these in **Railway → Variables** (and, for the GitHub buttons, in **GitHub → Settings → Secrets and variables → Actions → Variables**): `LABEL_CURRENT_VALUE`, `LABEL_BASELINE_VALUE`, `LABEL_LIMIT`, `LABEL_VOLUME`, `LABEL_OUTPUT`, `LABEL_EVENT_COUNT`. Text is shown in capitals. Delete the variable to go back to the default title.
 
+### Changing the text under the Telegram picture
+
+Run `supabase/migrations/20261102010000_dashboard_caption.sql` once in Supabase **SQL Editor**, then edit **Table Editor → dashboard_caption → text**. `{time}` becomes the post time, an empty cell uses the default wording, and a single `-` leaves that line out.
+
 ## 3. Set up the Telegram bot
 
 1. **Create the bot:** in Telegram open **@BotFather** → send `/newbot` → choose a name and a username ending in `bot`. BotFather replies with a token like `123456789:AA…`. Put it in `.env` as `TELEGRAM_BOT_TOKEN=`. Treat it like a password.
