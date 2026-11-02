@@ -55,6 +55,8 @@ export interface RenderInput {
   thumbnailDataUri?: string;
   width?: number;
   height?: number;
+  /** Card titles (pro design); missing ones use the defaults. */
+  labels?: Partial<import('../config/env.js').DashboardLabels>;
 }
 
 type Anchor = 'start' | 'middle' | 'end';

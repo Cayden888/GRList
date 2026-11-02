@@ -66,6 +66,7 @@ export async function generateDashboard(config: AppConfig, opts: GenerateOptions
     theme: config.dashboard.theme,
     demo: opts.demo,
     thumbnailDataUri,
+    labels: config.dashboard.labels,
     width: config.dashboard.width,
     height: config.dashboard.height,
   });

@@ -149,3 +149,15 @@ describe('PNG rendering', () => {
     expect(a.svg).toBe(b.svg);
   });
 });
+
+describe('custom labels', () => {
+  it('uses LABEL_* settings for the card titles', () => {
+    const cfg = testConfig({ LABEL_CURRENT_VALUE: 'Live Score' });
+    expect(cfg.dashboard.labels.current).toBe('Live Score');
+    const item = sampleItem();
+    const sim = simulateDashboard(item, 'label-test', OPTS);
+    const svg = buildDashboardSvg({ item, sim, timestamp: TS, simulatedLabel: 'SIMULATED DATA', theme: 'pro', labels: cfg.dashboard.labels });
+    expect(svg).toContain('LIVE SCORE · 24H');
+    expect(svg).not.toContain('CURRENT VALUE');
+  });
+});

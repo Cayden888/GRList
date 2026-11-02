@@ -15,6 +15,17 @@ import { hostname } from 'node:os';
 import { parseHHMM } from '../utils/time.js';
 import { registerSecret } from '../utils/logger.js';
 
+/** Card titles on the image (pro design). Each can be changed with a LABEL_* setting. */
+export interface DashboardLabels { current: string; baseline: string; limit: string; volume: string; output: string; eventCount: string }
+export const DEFAULT_LABELS: DashboardLabels = {
+  current: 'CURRENT VALUE',
+  baseline: 'BASELINE VALUE',
+  limit: 'LIMIT (24H)',
+  volume: 'VOLUME (24H)',
+  output: 'OUTPUT (24H)',
+  eventCount: 'EVENT COUNT (24H)',
+};
+
 export type SelectionStrategy = 'random' | 'sequential' | 'fixed';
 export type CurrentValueSource = 'generate' | 'sheet';
 
@@ -35,7 +46,7 @@ export interface AppConfig {
   telegram: { botToken?: string; chatId?: string; timeoutMs: number; captionEnabled: boolean };
   enableScheduler: boolean;
   dryRun: boolean;
-  dashboard: { outputDir: string; width: number; height: number; simulatedLabel: string; theme: 'control' | 'pro' | 'gamer' | 'clean' };
+  dashboard: { outputDir: string; width: number; height: number; simulatedLabel: string; theme: 'control' | 'pro' | 'gamer' | 'clean'; labels: DashboardLabels };
   window: { startMinutes: number; endMinutes: number; startText: string; endText: string };
   retry: { maxAttempts: number; delaysMinutes: number[]; missedJobGraceMinutes: number };
   worker: { checkIntervalMinutes: number; instanceId: string; leaseSeconds: number };
@@ -158,6 +169,14 @@ export function loadConfig(env: Env = process.env): AppConfig {
       height: num(env, 'DASHBOARD_HEIGHT', 900, problems, { min: 450, max: 2250, int: true }),
       simulatedLabel,
       theme: themeRaw as 'control' | 'pro' | 'gamer' | 'clean',
+      labels: {
+        current: str(env, 'LABEL_CURRENT_VALUE') ?? DEFAULT_LABELS.current,
+        baseline: str(env, 'LABEL_BASELINE_VALUE') ?? DEFAULT_LABELS.baseline,
+        limit: str(env, 'LABEL_LIMIT') ?? DEFAULT_LABELS.limit,
+        volume: str(env, 'LABEL_VOLUME') ?? DEFAULT_LABELS.volume,
+        output: str(env, 'LABEL_OUTPUT') ?? DEFAULT_LABELS.output,
+        eventCount: str(env, 'LABEL_EVENT_COUNT') ?? DEFAULT_LABELS.eventCount,
+      },
     },
     window: { startMinutes, endMinutes, startText, endText },
     retry: {

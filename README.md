@@ -97,6 +97,10 @@ How the sheet is read:
 
 Columns are matched by header name (order doesn't matter), quoted commas and Chinese text are fine, empty rows are skipped. **About your current sheet:** every row has the same ranges, `Title_CN` is empty, and the Volume / Output / Event Count columns are blank, so images show Current Value, Baseline, Difference and a simulated Time Since Last Update. Fill those columns in and their cards appear automatically.
 
+### Changing the card titles on the image
+
+Set any of these in **Railway → Variables** (and, for the GitHub buttons, in **GitHub → Settings → Secrets and variables → Actions → Variables**): `LABEL_CURRENT_VALUE`, `LABEL_BASELINE_VALUE`, `LABEL_LIMIT`, `LABEL_VOLUME`, `LABEL_OUTPUT`, `LABEL_EVENT_COUNT`. Text is shown in capitals. Delete the variable to go back to the default title.
+
 ## 3. Set up the Telegram bot
 
 1. **Create the bot:** in Telegram open **@BotFather** → send `/newbot` → choose a name and a username ending in `bot`. BotFather replies with a token like `123456789:AA…`. Put it in `.env` as `TELEGRAM_BOT_TOKEN=`. Treat it like a password.

@@ -18,6 +18,7 @@ import type { SimulatedValue } from '../simulation/metrics.js';
 import { formatMalaysiaDisplay } from '../utils/time.js';
 import { escapeXml as x, estimateTextWidth, fitText, formatDuration, formatNumber, formatSigned, formatValue } from './format.js';
 import { DESIGN_HEIGHT, DESIGN_WIDTH, FONT_STACK, type RenderInput } from './svg-clean.js';
+import { DEFAULT_LABELS } from '../config/env.js';
 
 const C = {
   bg: '#0A0D13',
@@ -103,6 +104,7 @@ function smoothPath(pts: Array<[number, number]>): string {
 
 export function buildProSvg(input: RenderInput): string {
   const { item, sim } = input;
+  const L = { ...DEFAULT_LABELS, ...input.labels };
   const out: string[] = [];
   const M = 48;
   const RIGHT = DESIGN_WIDTH - M;
@@ -169,9 +171,9 @@ export function buildProSvg(input: RenderInput): string {
 
   // ================= Layout regions =================
   const bottomCards: Array<{ lab: string; v: SimulatedValue; range?: NumericRange; color: string }> = [];
-  if (sim.volume24h) bottomCards.push({ lab: 'VOLUME (24H)', v: sim.volume24h, range: item.volume24h, color: C.blue });
-  if (sim.output24h) bottomCards.push({ lab: 'OUTPUT (24H)', v: sim.output24h, range: item.output24h, color: C.accent });
-  if (sim.eventCount24h) bottomCards.push({ lab: 'EVENT COUNT (24H)', v: sim.eventCount24h, range: item.eventCount24h, color: C.gold });
+  if (sim.volume24h) bottomCards.push({ lab: L.volume.toUpperCase(), v: sim.volume24h, range: item.volume24h, color: C.blue });
+  if (sim.output24h) bottomCards.push({ lab: L.output.toUpperCase(), v: sim.output24h, range: item.output24h, color: C.accent });
+  if (sim.eventCount24h) bottomCards.push({ lab: L.eventCount.toUpperCase(), v: sim.eventCount24h, range: item.eventCount24h, color: C.gold });
 
   type Side = { h: number; draw: (px: number, py: number, w: number, h: number) => string };
   const side: Side[] = [];
@@ -181,7 +183,7 @@ export function buildProSvg(input: RenderInput): string {
       h: 1,
       draw: (px, py, w, h) =>
         card(px, py, w, h) +
-        cardLabel(px + 24, py + 36, 'BASELINE VALUE', w - 48, C.gold) +
+        cardLabel(px + 24, py + 36, L.baseline.toUpperCase(), w - 48, C.gold) +
         t(px + 24, py + 36 + Math.min(62, h - 70), formatValue(v), Math.min(46, h - 82), { weight: 700 }) +
         t(px + w - 24, py + 36, `${formatNumber(item.baseline!.min, v.decimals)} – ${formatNumber(item.baseline!.max, v.decimals)}`, 13, { color: C.faint, weight: 600, anchor: 'end' }),
     });
@@ -193,7 +195,7 @@ export function buildProSvg(input: RenderInput): string {
       draw: (px, py, w, h) => {
         const fs = Math.min(46, h - 106);
         return card(px, py, w, h) +
-          cardLabel(px + 24, py + 36, 'LIMIT (24H)', w - 48, C.blue) +
+          cardLabel(px + 24, py + 36, L.limit.toUpperCase(), w - 48, C.blue) +
           t(px + 24, py + 42 + fs + 8, formatValue(v), fs, { weight: 700 }) +
           rangeBar(px + 24, py + h - 52, w - 48, v, item.limit24h!, C.blue);
       },
@@ -235,7 +237,7 @@ export function buildProSvg(input: RenderInput): string {
   // ================= Main chart panel =================
   const cx0 = M;
   out.push(card(cx0, mainTop, chartW, mainBottom - mainTop));
-  out.push(cardLabel(cx0 + 28, mainTop + 40, 'CURRENT VALUE · 24H', 360, C.accent));
+  out.push(cardLabel(cx0 + 28, mainTop + 40, `${L.current.toUpperCase()} · 24H`, 360, C.accent));
   const cur = formatValue(sim.current);
   const big = fitText(cur, 360, 68, 40);
   out.push(t(cx0 + 26, mainTop + 112, big.text, big.size, { weight: 700 }));

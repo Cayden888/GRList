@@ -56,6 +56,13 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      DASHBOARD_THEME: ${{ vars.DASHBOARD_THEME }}
+      LABEL_CURRENT_VALUE: ${{ vars.LABEL_CURRENT_VALUE }}
+      LABEL_BASELINE_VALUE: ${{ vars.LABEL_BASELINE_VALUE }}
+      LABEL_LIMIT: ${{ vars.LABEL_LIMIT }}
+      LABEL_VOLUME: ${{ vars.LABEL_VOLUME }}
+      LABEL_OUTPUT: ${{ vars.LABEL_OUTPUT }}
+      LABEL_EVENT_COUNT: ${{ vars.LABEL_EVENT_COUNT }}
       # Inputs are passed as environment variables (never pasted into commands).
       INPUT_ACTION: ${{ inputs.action }}
       INPUT_DATE: ${{ inputs.date }}
