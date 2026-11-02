@@ -1,7 +1,7 @@
 /**
- * "Control" theme — PLANT PULSE · Precision Control Room.
+ * "Control" theme — instrument-panel layout.
  *
- *  ┌ header: PLANT PULSE | DAILY STATS | item | SOURCE | REGION ……… UPDATED | status ┐
+ *  ┌ header: DAILY STATS | item | SOURCE | REGION ……… UPDATED | status ┐
  *  ┌ LimitMonitor (main metric + precision gauge) ┐ ┌ ValueComparison ───────────┐
  *  │                                             │ │ CURRENT / BASELINE / DIFF  │
  *  └─────────────────────────────────────────────┘ └────────────────────────────┘
@@ -141,10 +141,6 @@ export function buildControlSvg(input: RenderInput): string {
   out.push(`<rect x="${M}" y="18" width="28" height="28" rx="4" fill="none" stroke="${C.accent}" stroke-width="1.5"/>`);
   out.push(`<path d="M${M + 5},33 H${M + 10} L${M + 13},25 L${M + 17},40 L${M + 20},31 H${M + 23}" fill="none" stroke="${C.accent}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`);
   let hx = M + 42;
-  out.push(t(hx, 38, 'PLANT PULSE', 15, { weight: 600, spacing: 2.2 }));
-  hx += labelW('PLANT PULSE', 15, 2.2) + 20;
-  out.push(vline(hx, 20, 44));
-  hx += 20;
   out.push(t(hx, 38, 'DAILY STATS', 13, { weight: 600, spacing: 1.8, color: C.accent }));
   hx += labelW('DAILY STATS', 13, 1.8) + 20;
   out.push(vline(hx, 20, 44));

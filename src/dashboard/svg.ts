@@ -1,5 +1,5 @@
 /**
- * Picks the dashboard design ("theme"). Set DASHBOARD_THEME=control (default), pro, gamer or clean.
+ * Picks the dashboard design ("theme"). Set DASHBOARD_THEME=pro (default), control, gamer or clean.
  */
 import { buildCleanSvg, type RenderInput } from './svg-clean.js';
 import { buildGamerSvg } from './svg-gamer.js';
@@ -14,6 +14,6 @@ export const THEMES: readonly DashboardTheme[] = ['control', 'pro', 'gamer', 'cl
 export function buildDashboardSvg(input: RenderInput & { theme?: DashboardTheme }): string {
   if (input.theme === 'clean') return buildCleanSvg(input);
   if (input.theme === 'gamer') return buildGamerSvg(input);
-  if (input.theme === 'pro') return buildProSvg(input);
-  return buildControlSvg(input);
+  if (input.theme === 'control') return buildControlSvg(input);
+  return buildProSvg(input);
 }

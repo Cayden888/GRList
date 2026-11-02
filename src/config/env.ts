@@ -112,7 +112,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     problems.push('SIMULATED_DATA_LABEL must clearly say the data is simulated (it must contain "SIMULATED")');
   }
 
-  const themeRaw = (str(env, 'DASHBOARD_THEME') ?? 'control').toLowerCase();
+  const themeRaw = (str(env, 'DASHBOARD_THEME') ?? 'pro').toLowerCase();
   if (!['control', 'pro', 'gamer', 'clean'].includes(themeRaw)) problems.push(`DASHBOARD_THEME must be control, pro, gamer or clean (got "${themeRaw}")`);
 
   const tsMin = num(env, 'SIM_TIME_SINCE_UPDATE_MIN_MINUTES', 3, problems, { min: 0, int: true });

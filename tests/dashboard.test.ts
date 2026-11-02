@@ -94,7 +94,7 @@ describe('themes', () => {
 
   it('rejects an unknown theme name in settings', () => {
     expect(() => testConfig({ DASHBOARD_THEME: 'pink' })).toThrow(/DASHBOARD_THEME/);
-    expect(testConfig({}).dashboard.theme).toBe('control');
+    expect(testConfig({}).dashboard.theme).toBe('pro');
   });
 });
 
