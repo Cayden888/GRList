@@ -7,6 +7,17 @@ const HEADER =
   'Image_Name,Title_EN,Title_CN,Data_Source,Region,Last_Updated,Next_Update,Current_Value_Min,Current_Value_Max,Current_Value,Baseline_Value_Min,Baseline_Value_Max,Volume_24H_Min,Volume_24H_Max,Output_24H_Min,Output_24H_Max,Event_Count_24H_Min,Event_Count_24H_Max,Time_Since_Last_Update,Random_Timer_Seconds';
 
 describe('Google Sheet CSV parsing', () => {
+  it('keeps the selected game linked to its own Play_Url', () => {
+    const csv = 'Image_Name,Title_EN,Data_Source,Current_Value_Min,Current_Value_Max,Play_Url\n'
+      + 'MajongW2,Majong Ways 2,Lucky365,95,99.5,www.google.com\n'
+      + 'WildWalker,Wild Walker,Pragmatic Play,95,99.5,https://example.com/walker\n';
+    const rows = parseSheetCsv(csv).items;
+    expect(rows[0]!.playUrl).toBe('https://www.google.com');
+    expect(rows[0]!.titleEn).toBe('Majong Ways 2');
+    expect(rows[1]!.playUrl).toBe('https://example.com/walker');
+    expect(rows[1]!.titleEn).toBe('Wild Walker');
+  });
+
   it('parses the real sheet sample (short rows, missing optional columns)', () => {
     const csv = readFileSync('tests/fixtures/sheet-sample.csv', 'utf8');
     const r = parseSheetCsv(csv);

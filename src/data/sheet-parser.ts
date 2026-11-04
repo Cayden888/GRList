@@ -1,204 +1,316 @@
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { parseNumberCell, parseSheetCsv, SheetFormatError, toDirectImageUrl } from '../src/data/sheet-parser.js';
-import { resolveCsvUrl } from '../src/data/sheet-reader.js';
+/**
+ * Turns the raw CSV text of the Google Sheet into validated dashboard items.
+ *
+ * - Columns are found by header name (case-insensitive), never by position.
+ * - Quoted cells with commas, blank cells, extra whitespace, a UTF-8 BOM and
+ *   Chinese text are all handled by csv-parse.
+ * - Completely empty rows are skipped.
+ * - Nothing is invented: a missing or broken optional range simply hides that
+ *   card, and every problem is reported in `issues` so it can be logged.
+ */
+import { parse } from 'csv-parse/sync';
+import type { DashboardItem, NumericRange, RowIssue, SheetParseResult } from './types.js';
 
-const HEADER =
-  'Image_Name,Title_EN,Title_CN,Data_Source,Region,Last_Updated,Next_Update,Current_Value_Min,Current_Value_Max,Current_Value,Baseline_Value_Min,Baseline_Value_Max,Volume_24H_Min,Volume_24H_Max,Output_24H_Min,Output_24H_Max,Event_Count_24H_Min,Event_Count_24H_Max,Time_Since_Last_Update,Random_Timer_Seconds';
+export const COLUMNS = {
+  imageName: 'Image_Name',
+  imageLink: 'Image_Link',
+  playUrl: 'Play_Url',
+  titleEn: 'Title_EN',
+  titleCn: 'Title_CN',
+  dataSource: 'Data_Source',
+  region: 'Region',
+  lastUpdated: 'Last_Updated',
+  nextUpdate: 'Next_Update',
+  currentMin: 'Current_Value_Min',
+  currentMax: 'Current_Value_Max',
+  current: 'Current_Value',
+  baselineMin: 'Baseline_Value_Min',
+  baselineMax: 'Baseline_Value_Max',
+  volumeMin: 'Volume_24H_Min',
+  volumeMax: 'Volume_24H_Max',
+  outputMin: 'Output_24H_Min',
+  outputMax: 'Output_24H_Max',
+  eventMin: 'Event_Count_24H_Min',
+  eventMax: 'Event_Count_24H_Max',
+  limitMin: 'Low_Limit_24H_Min',
+  limitMax: 'High_Limit_24H_Max',
+  timeSince: 'Time_Since_Last_Update',
+  timer: 'Random_Timer_Seconds',
+} as const;
 
-describe('Google Sheet CSV parsing', () => {
-  it('parses the real sheet sample (short rows, missing optional columns)', () => {
-    const csv = readFileSync('tests/fixtures/sheet-sample.csv', 'utf8');
-    const r = parseSheetCsv(csv);
-    expect(r.totalRows).toBe(21);
-    expect(r.items).toHaveLength(21);
-    const first = r.items[0]!;
-    expect(first.titleEn).toBe('A');
-    expect(first.titleCn).toBeUndefined();
-    expect(first.dataSource).toBe('LU');
-    expect(first.region).toBe('Malaysia');
-    expect(first.lastUpdated).toBeUndefined(); // "Static" is a placeholder, not a value
-    expect(first.current).toEqual({ min: 95, max: 99.5 });
-    expect(first.currentSheetValue).toBe(96.7);
-    expect(first.baseline).toEqual({ min: 92, max: 97 });
-    expect(first.volume24h).toBeUndefined();
-    expect(first.eventCount24h).toBeUndefined();
-    // Image_Name "3" appears twice – ids must still be unique.
-    expect(new Set(r.items.map((i) => i.id)).size).toBe(21);
-    expect(first.imageUrl).toBeUndefined();
-  });
+/** Other header names accepted for the picture column (matched case-insensitively). */
+export const IMAGE_LINK_ALIASES = [COLUMNS.imageLink, 'Link', 'Image_URL', 'Image_Url', 'Image', 'Picture', 'Picture_Link', 'Game_Image', 'Game_Image_URL', 'Thumbnail', 'Thumbnail_URL'] as const;
+export const PLAY_URL_ALIASES = [COLUMNS.playUrl, 'Game_Url', 'Game_URL', 'Game_Link', 'Play_Link', 'Play_URL', 'URL'] as const;
 
-  it('reads the picture from a column simply called "Link" (Drive file link)', () => {
-    const csv =
-      'Image_Name,Title_EN,Current_Value_Min,Current_Value_Max,Link\n' +
-      '1,A,95,99.5,https://drive.google.com/file/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO/view?usp=drive_link\n' +
-      '2,B,95,99.5,\n';
-    const r = parseSheetCsv(csv);
-    expect(r.items[0]!.imageUrl).toBe('https://drive.usercontent.google.com/download?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO&export=view');
-    expect(r.items[0]!.imageName).toBe('1');
-    expect(r.items[1]!.imageUrl).toBeUndefined();
-    expect(r.issues).toHaveLength(0);
-  });
+const REQUIRED_HEADERS = [COLUMNS.currentMin, COLUMNS.currentMax];
 
-  it('warns when the picture link is a Drive folder or not a web link', () => {
-    const csv =
-      'Title_EN,Current_Value_Min,Current_Value_Max,Image_Link\n' +
-      'A,1,2,https://drive.google.com/drive/u/0/folders/1Xaro4-wS-LTeZ97xhGg5QWv6JSSINM5r\n' +
-      'B,1,2,my-picture.png\n';
-    const r = parseSheetCsv(csv);
-    expect(r.items).toHaveLength(2);
-    expect(r.issues.map((i) => i.message).join(' ')).toMatch(/folder/);
-    expect(r.issues.map((i) => i.message).join(' ')).toMatch(/not a web link/);
-    expect(r.items[1]!.imageUrl).toBeUndefined();
-  });
+/** Words that mean "no real value here" for the text fields. */
+const PLACEHOLDER_WORDS = new Set(['static', '-', '--', 'n/a', 'na', 'none', 'null', 'tbd', 'undefined', 'nan']);
 
-  it('reads columns by header name, in any order, ignoring case and extra columns', () => {
-    const csv = 'extra,current_value_max,TITLE_EN,Current_Value_Min\nx,10,Hello,1\n';
-    const r = parseSheetCsv(csv);
-    expect(r.items[0]!.titleEn).toBe('Hello');
-    expect(r.items[0]!.current).toEqual({ min: 1, max: 10 });
-  });
+export class SheetFormatError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SheetFormatError';
+  }
+}
 
-  it('handles quoted commas, whitespace, a UTF-8 BOM and Chinese text', () => {
-    const csv = `﻿${HEADER}\n"https://example.com/a.png", "  Big, Item  ",大型项目 ,"Source, Inc.",吉隆坡,,,"1,000","2,500.5",,,,,,,,,,,\n`;
-    const r = parseSheetCsv(csv);
-    const it0 = r.items[0]!;
-    expect(it0.titleEn).toBe('Big, Item');
-    expect(it0.titleCn).toBe('大型项目');
-    expect(it0.dataSource).toBe('Source, Inc.');
-    expect(it0.region).toBe('吉隆坡');
-    expect(it0.current).toEqual({ min: 1000, max: 2500.5 });
-    expect(it0.imageUrl).toBe('https://example.com/a.png');
-  });
+const normHeader = (h: string) => h.replace(/^﻿/, '').trim().toLowerCase();
 
-  it('ignores completely empty rows', () => {
-    const csv = `${HEADER}\n,,,,,,,,,,,,,,,,,,,\n\n1,A,,,,,,1,2\n , , \n`;
-    const r = parseSheetCsv(csv);
-    expect(r.totalRows).toBe(1);
-    expect(r.items).toHaveLength(1);
-  });
+/** Parses "1,234.5", " 96.7 ", "97%" → number. Returns undefined for blank, NaN for junk. */
+export function parseNumberCell(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const t = raw.trim();
+  if (t === '') return undefined;
+  const cleaned = t.replace(/[,\s]/g, '').replace(/%$/, '');
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(cleaned)) return Number.NaN;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : Number.NaN;
+}
 
-  it('rejects a row whose required range has minimum above maximum', () => {
-    const r = parseSheetCsv(`${HEADER}\n1,A,,,,,,99,95\n2,B,,,,,,95,99\n`);
-    expect(r.items.map((i) => i.titleEn)).toEqual(['B']);
-    expect(r.issues.some((i) => i.severity === 'error' && i.rowNumber === 2 && /greater than/.test(i.message))).toBe(true);
-  });
+function textCell(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const t = raw.replace(/\s+/g, ' ').trim();
+  return t === '' ? undefined : t;
+}
 
-  it('never invents missing required values', () => {
-    const r = parseSheetCsv(`${HEADER}\n1,A,,,,,,95,\n2,,,,,,,1,2\n3,C,,,,,,abc,5\n`);
-    expect(r.items).toHaveLength(0);
-    expect(r.issues.filter((i) => i.severity === 'error')).toHaveLength(3);
-  });
+function meaningfulText(raw: string | undefined): string | undefined {
+  const t = textCell(raw);
+  if (t === undefined) return undefined;
+  return PLACEHOLDER_WORDS.has(t.toLowerCase()) ? undefined : t;
+}
 
-  it('hides an optional card (with a warning) when its range is incomplete or invalid', () => {
-    const r = parseSheetCsv(`${HEADER}\n1,A,,,,,,95,99,,97,92,10,,,,1.2,1.8\n`);
-    const item = r.items[0]!;
-    expect(item.baseline).toBeUndefined();
-    expect(item.volume24h).toBeUndefined();
-    expect(item.eventCount24h).toBeUndefined(); // no whole number between 1.2 and 1.8
-    expect(r.issues.filter((i) => i.severity === 'warning').length).toBeGreaterThanOrEqual(3);
-  });
+function slug(text: string): string {
+  return text
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
 
-  it('ignores a Current_Value outside its range', () => {
-    const r = parseSheetCsv(`${HEADER}\n1,A,,,,,,95,99,120\n`);
-    expect(r.items[0]!.currentSheetValue).toBeUndefined();
-    expect(r.issues.some((i) => /outside/.test(i.message))).toBe(true);
-  });
+/**
+ * Turns a Google Drive share link into a direct image download link.
+ * Accepts …/file/d/ID/view, …/open?id=ID and …/uc?id=ID. Other links are returned unchanged.
+ * The Drive file must be shared as "Anyone with the link can view".
+ */
+export function toDirectImageUrl(url: string): string {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return url;
+  }
+  if (!/(^|\.)drive\.google\.com$|^docs\.google\.com$/.test(u.hostname)) return url;
+  const id = /\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(u.pathname)?.[1] ?? u.searchParams.get('id');
+  if (!id || !/^[A-Za-z0-9_-]{10,}$/.test(id)) return url;
+  return `https://drive.usercontent.google.com/download?id=${id}&export=view`;
+}
 
-  it('parses Time_Since_Last_Update as minutes or short text', () => {
-    const r = parseSheetCsv(`${HEADER}\n1,A,,,,,,1,2,,,,,,,,,,15,\n2,B,,,,,,1,2,,,,,,,,,,about 1 hour,30\n3,C,,,,,,1,2,,,,,,,,,,Static,-5\n`);
-    expect(r.items[0]!.timeSinceUpdateMinutes).toBe(15);
-    expect(r.items[1]!.timeSinceUpdateText).toBe('about 1 hour');
-    expect(r.items[1]!.randomTimerSeconds).toBe(30);
-    expect(r.items[2]!.timeSinceUpdateMinutes).toBeUndefined();
-    expect(r.items[2]!.timeSinceUpdateText).toBeUndefined();
-    expect(r.items[2]!.randomTimerSeconds).toBeUndefined();
-  });
+/** Picture link: Image_Link if given, otherwise Image_Name when it is a link. */
+function imageUrlFor(link: string | undefined, name: string | undefined): string | undefined {
+  for (const v of [link, name]) if (v && isHttpUrl(v)) return toDirectImageUrl(v);
+  return undefined;
+}
 
-  it('fails clearly when required columns are missing', () => {
-    expect(() => parseSheetCsv('Title_EN,Region\nA,MY\n')).toThrow(SheetFormatError);
-    expect(() => parseSheetCsv('Title_EN,Region\nA,MY\n')).toThrow(/Current_Value_Min/);
-  });
+export function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'https:' || u.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
 
-  it('detects an HTML login page instead of CSV', () => {
-    expect(() => parseSheetCsv('<!DOCTYPE html><html><body>Sign in</body></html>')).toThrow(/web page/);
-  });
+export function parseSheetCsv(csvText: string): SheetParseResult {
+  if (/^\s*<(!doctype|html)/i.test(csvText)) {
+    throw new SheetFormatError('Received a web page instead of CSV. Is the sheet shared as "Anyone with the link can view"?');
+  }
+  let records: string[][];
+  try {
+    records = parse(csvText, {
+      bom: true,
+      relax_column_count: true,
+      relax_quotes: true,
+      skip_empty_lines: false,
+      trim: true, // also allows spaces around quoted cells
+    }) as string[][];
+  } catch (e) {
+    throw new SheetFormatError(`The sheet is not valid CSV: ${(e as Error).message}`);
+  }
 
-  it('parses number cells strictly', () => {
-    expect(parseNumberCell(' 1,234.5 ')).toBe(1234.5);
-    expect(parseNumberCell('97%')).toBe(97);
-    expect(parseNumberCell('')).toBeUndefined();
-    expect(parseNumberCell('abc')).toBeNaN();
-    expect(parseNumberCell('1.2.3')).toBeNaN();
-    expect(parseNumberCell('Infinity')).toBeNaN();
-  });
-});
+  if (records.length === 0) throw new SheetFormatError('The sheet is empty (no header row found).');
 
-describe('sheet URL building', () => {
-  const base = { fetchTimeoutMs: 1000 };
-  it('uses the CSV URL as given', () => {
-    expect(resolveCsvUrl({ ...base, csvUrl: 'https://example.com/x.csv' })).toBe('https://example.com/x.csv');
-  });
-  it('converts a normal sheet link into a CSV export link', () => {
-    expect(resolveCsvUrl({ ...base, csvUrl: 'https://docs.google.com/spreadsheets/d/ABC_123/edit?gid=0#gid=0' })).toBe(
-      'https://docs.google.com/spreadsheets/d/ABC_123/export?format=csv&gid=0',
-    );
-  });
-  it('builds from sheet id + gid, or sheet id + tab name', () => {
-    expect(resolveCsvUrl({ ...base, id: 'ABC', gid: '0' })).toBe('https://docs.google.com/spreadsheets/d/ABC/export?format=csv&gid=0');
-    expect(resolveCsvUrl({ ...base, id: 'ABC', tab: 'Game List' })).toBe('https://docs.google.com/spreadsheets/d/ABC/gviz/tq?tqx=out:csv&sheet=Game%20List');
-  });
-  it('returns undefined when nothing is configured', () => {
-    expect(resolveCsvUrl(base)).toBeUndefined();
-  });
-});
-
-describe('Limit (24H) columns', () => {
-  it('reads Low_Limit_24H_Min / High_Limit_24H_Max with thousands separators', () => {
-    const csv = 'Title_EN,Current_Value_Min,Current_Value_Max,Low_Limit_24H_Min,High_Limit_24H_Max\nA,95,99.5,"54,925","62,150"\nB,95,99.5,,\n';
-    const r = parseSheetCsv(csv);
-    expect(r.items[0]!.limit24h).toEqual({ min: 54925, max: 62150 });
-    expect(r.items[1]!.limit24h).toBeUndefined();
-  });
-});
-
-describe('Play_Url per-game captions', () => {
-  it('reads each play URL from the same selected game row', () => {
-    const csv = 'Title_EN,Current_Value_Min,Current_Value_Max,Link,Play_Url\n' +
-      'Majong Ways 2,95,99.5,https://example.com/majong.png,www.google.com\n' +
-      'Wild Walker,95,99.5,https://example.com/walker.png,https://example.com/walker\n';
-    const r = parseSheetCsv(csv);
-    expect(r.items[0]?.titleEn).toBe('Majong Ways 2');
-    expect(r.items[0]?.playUrl).toBe('https://www.google.com');
-    expect(r.items[1]?.playUrl).toBe('https://example.com/walker');
-    expect(r.items[0]?.imageUrl).toBe('https://example.com/majong.png');
-  });
-});
-
-describe('pictures', () => {
-  it('converts Google Drive share links to direct image links', () => {
-    const direct = 'https://drive.usercontent.google.com/download?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO&export=view';
-    expect(toDirectImageUrl('https://drive.google.com/file/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO/view?usp=drive_link')).toBe(direct);
-    expect(toDirectImageUrl('https://drive.google.com/open?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO')).toBe(direct);
-    expect(toDirectImageUrl('https://i.imgur.com/AbC123x.png')).toBe('https://i.imgur.com/AbC123x.png');
+  const header = records[0]!.map(normHeader);
+  const index = new Map<string, number>();
+  header.forEach((h, i) => {
+    if (h && !index.has(h)) index.set(h, i);
   });
 
-  it('uses Image_Link when present, keeping Image_Name as a plain name', () => {
-    const csv = 'Image_Name,Image_Link,Title_EN,Current_Value_Min,Current_Value_Max\n1,https://drive.google.com/file/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO/view,A,1,2\n2,,B,1,2\nhttps://i.imgur.com/x1.png,,C,1,2\n';
-    const r = parseSheetCsv(csv);
-    expect(r.items[0]!.imageName).toBe('1');
-    expect(r.items[0]!.imageUrl).toContain('drive.usercontent.google.com');
-    expect(r.items[1]!.imageUrl).toBeUndefined();
-    expect(r.items[2]!.imageUrl).toBe('https://i.imgur.com/x1.png');
-  });
-});
+  const missing: string[] = REQUIRED_HEADERS.filter((h) => !index.has(h.toLowerCase()));
+  if (!index.has(COLUMNS.titleEn.toLowerCase()) && !index.has(COLUMNS.titleCn.toLowerCase())) missing.push(`${COLUMNS.titleEn} or ${COLUMNS.titleCn}`);
+  if (missing.length) {
+    throw new SheetFormatError(`The sheet is missing required column(s): ${missing.join(', ')}. Found: ${records[0]!.map((h) => h.trim()).filter(Boolean).join(', ')}`);
+  }
 
-import { imageUrlCandidates } from '../src/dashboard/render.js';
-describe('Drive picture addresses', () => {
-  it('tries backup public addresses for Drive pictures only', () => {
-    const c = imageUrlCandidates('https://drive.usercontent.google.com/download?id=1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO&export=view');
-    expect(c).toHaveLength(3);
-    expect(c[1]).toContain('lh3.googleusercontent.com/d/1CF-tp_cWZy8JFf1byZ0YNtmBZKALhdhO');
-    expect(imageUrlCandidates('https://example.com/a.png')).toEqual(['https://example.com/a.png']);
-  });
-});
+  const issues: RowIssue[] = [];
+  const items: DashboardItem[] = [];
+  const usedIds = new Map<string, number>();
+  let totalRows = 0;
+
+  for (let r = 1; r < records.length; r++) {
+    const row = records[r]!;
+    const rowNumber = r + 1;
+    if (row.every((c) => c.trim() === '')) continue; // completely empty row
+    totalRows++;
+
+    const cell = (col: string): string | undefined => {
+      const i = index.get(col.toLowerCase());
+      return i === undefined ? undefined : row[i];
+    };
+    /** First non-blank cell among the accepted picture-column names. */
+    const imageLinkCell = (): string | undefined => {
+      for (const name of IMAGE_LINK_ALIASES) {
+        const v = textCell(cell(name));
+        if (v) return v;
+      }
+      return undefined;
+    };
+    /** First non-blank cell among the accepted play-link column names. */
+    const playUrlCell = (): string | undefined => {
+      for (const name of PLAY_URL_ALIASES) {
+        const v = textCell(cell(name));
+        if (v) return v;
+      }
+      return undefined;
+    };
+    const rowIssues: RowIssue[] = [];
+    const warn = (message: string) => rowIssues.push({ rowNumber, severity: 'warning', message });
+    const fail = (message: string) => rowIssues.push({ rowNumber, severity: 'error', message });
+
+    /** Reads a min/max pair. Required pairs fail the row; optional pairs only hide the card. */
+    const readRange = (label: string, minCol: string, maxCol: string, opts: { required: boolean; integer?: boolean }): NumericRange | undefined => {
+      const min = parseNumberCell(cell(minCol));
+      const max = parseNumberCell(cell(maxCol));
+      const report = opts.required ? fail : warn;
+      const hidden = opts.required ? '' : ' – this card will be hidden';
+      if (min === undefined && max === undefined) {
+        if (opts.required) fail(`${label}: ${minCol} and ${maxCol} are blank`);
+        return undefined;
+      }
+      if (min === undefined || max === undefined) {
+        report(`${label}: ${min === undefined ? minCol : maxCol} is blank${hidden}`);
+        return undefined;
+      }
+      if (Number.isNaN(min) || Number.isNaN(max)) {
+        report(`${label}: ${Number.isNaN(min) ? minCol : maxCol} is not a number${hidden}`);
+        return undefined;
+      }
+      if (min > max) {
+        report(`${label}: minimum ${min} is greater than maximum ${max}${hidden}`);
+        return undefined;
+      }
+      if (opts.integer && Math.ceil(min) > Math.floor(max)) {
+        report(`${label}: no whole number lies between ${min} and ${max}${hidden}`);
+        return undefined;
+      }
+      if (opts.integer && (min < 0 || max < 0)) {
+        report(`${label}: counts cannot be negative${hidden}`);
+        return undefined;
+      }
+      return { min, max };
+    };
+
+    const titleEn = textCell(cell(COLUMNS.titleEn));
+    const titleCn = textCell(cell(COLUMNS.titleCn));
+    if (!titleEn && !titleCn) fail('Title_EN and Title_CN are both blank');
+
+    const current = readRange('Current Value', COLUMNS.currentMin, COLUMNS.currentMax, { required: true });
+    const baseline = readRange('Baseline Value', COLUMNS.baselineMin, COLUMNS.baselineMax, { required: false });
+    const volume24h = readRange('Volume (24H)', COLUMNS.volumeMin, COLUMNS.volumeMax, { required: false });
+    const output24h = readRange('Output (24H)', COLUMNS.outputMin, COLUMNS.outputMax, { required: false });
+    const eventCount24h = readRange('Event Count (24H)', COLUMNS.eventMin, COLUMNS.eventMax, { required: false, integer: true });
+    const limit24h = readRange('Limit (24H)', COLUMNS.limitMin, COLUMNS.limitMax, { required: false });
+
+    let currentSheetValue: number | undefined;
+    const cv = parseNumberCell(cell(COLUMNS.current));
+    if (cv !== undefined) {
+      if (Number.isNaN(cv)) warn('Current_Value is not a number – ignored');
+      else if (current && (cv < current.min || cv > current.max)) warn(`Current_Value ${cv} is outside ${current.min}–${current.max} – ignored`);
+      else currentSheetValue = cv;
+    }
+
+    let timeSinceUpdateMinutes: number | undefined;
+    let timeSinceUpdateText: string | undefined;
+    const tsRaw = meaningfulText(cell(COLUMNS.timeSince));
+    if (tsRaw !== undefined) {
+      const n = parseNumberCell(tsRaw);
+      if (n !== undefined && !Number.isNaN(n)) {
+        if (n >= 0) timeSinceUpdateMinutes = n;
+        else warn('Time_Since_Last_Update is negative – a simulated value will be used');
+      } else if (tsRaw.length <= 24) {
+        timeSinceUpdateText = tsRaw;
+      } else {
+        warn('Time_Since_Last_Update text is too long – a simulated value will be used');
+      }
+    }
+
+    let randomTimerSeconds: number | undefined;
+    const timer = parseNumberCell(cell(COLUMNS.timer));
+    if (timer !== undefined) {
+      if (Number.isNaN(timer) || timer <= 0 || timer > 86400) warn('Random_Timer_Seconds must be between 1 and 86400 – timer hidden');
+      else randomTimerSeconds = Math.round(timer);
+    }
+
+    if (rowIssues.some((i) => i.severity === 'error') || !current) {
+      issues.push(...rowIssues);
+      continue;
+    }
+    issues.push(...rowIssues);
+
+    const imageName = textCell(cell(COLUMNS.imageName));
+    const baseId = slug(`${imageName ?? `row${rowNumber}`}-${titleEn ?? titleCn ?? ''}`) || `row-${rowNumber}`;
+    const seen = usedIds.get(baseId) ?? 0;
+    usedIds.set(baseId, seen + 1);
+    const id = seen === 0 ? baseId : `${baseId}-${seen + 1}`;
+    if (seen > 0) issues.push({ rowNumber, severity: 'warning', message: `Duplicate item "${baseId}" – using id "${id}"` });
+
+    const rawImageLink = imageLinkCell();
+    if (rawImageLink) {
+      if (!isHttpUrl(rawImageLink)) issues.push({ rowNumber, severity: 'warning', message: 'Picture link is not a web link (must start with https://) – no picture' });
+      else if (/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(rawImageLink)) issues.push({ rowNumber, severity: 'warning', message: 'Picture link points to a Drive folder, not a file – open the image and use its own share link' });
+    }
+
+    const rawPlayUrl = playUrlCell();
+    // Allow the common www.example.com form while rejecting unsafe or malformed links.
+    const normalizedPlayUrl = rawPlayUrl && /^(?:www\.)[a-z0-9.-]+(?:[/?#:]|$)/i.test(rawPlayUrl)
+      ? `https://${rawPlayUrl}` : rawPlayUrl;
+    const playUrl = normalizedPlayUrl && isHttpUrl(normalizedPlayUrl) ? normalizedPlayUrl : undefined;
+    if (rawPlayUrl && !playUrl) issues.push({ rowNumber, severity: 'warning', message: 'Play link must be an HTTP(S) URL – caption link hidden' });
+
+    items.push({
+      id,
+      rowNumber,
+      imageName,
+      imageUrl: imageUrlFor(imageLinkCell(), imageName),
+      playUrl,
+      titleEn,
+      titleCn,
+      dataSource: meaningfulText(cell(COLUMNS.dataSource)),
+      region: meaningfulText(cell(COLUMNS.region)),
+      lastUpdated: meaningfulText(cell(COLUMNS.lastUpdated)),
+      nextUpdate: meaningfulText(cell(COLUMNS.nextUpdate)),
+      current,
+      currentSheetValue,
+      baseline,
+      volume24h,
+      output24h,
+      eventCount24h,
+      limit24h,
+      timeSinceUpdateMinutes,
+      timeSinceUpdateText,
+      randomTimerSeconds,
+    });
+  }
+
+  return { items, issues, totalRows };
+}
