@@ -131,8 +131,6 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(label(hasLimit ? (input.labels?.limit ?? 'LIMIT (24H)') : (input.labels?.current ?? 'CURRENT VALUE'), 142, 335, 28, WHITE, 800));
   o.push(fitted(num, 74, 417, 505, 82, 46, "url(#gold)", 850));
   o.push(`<rect x="70" y="371" width="520" height="75" fill="none"/>`);
-  o.push(`<line x1="645" y1="336" x2="645" y2="425" stroke="#DDEEFF" stroke-width="1.8"/>`);
-  o.push(fitted(`${rounded(min)} – ${rounded(max)}`, 694, 402, 332, 30, 22));
   o.push(`<rect x="70" y="456" width="792" height="28" rx="14" fill="#053058" stroke="#087DCF" stroke-width="2"/>`);
   o.push(`<g clip-path="url(#barClip)"><rect x="70" y="456" width="${Math.max(0, 792 * ratio)}" height="28" fill="url(#bar)"/><rect x="77" y="458" width="${Math.max(0, 780 * ratio)}" height="5" rx="2" fill="#FFF8BE" opacity="0.6"/></g>`);
   o.push(`<rect x="888" y="447" width="141" height="46" rx="23" fill="#281D00" stroke="#FFE13A" stroke-width="2"/>`);
