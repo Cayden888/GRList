@@ -132,7 +132,6 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(fitted(num, 74, 417, 505, 82, 46, "url(#gold)", 850));
   o.push(`<rect x="70" y="371" width="520" height="75" fill="none"/>`);
   o.push(`<line x1="645" y1="336" x2="645" y2="425" stroke="#DDEEFF" stroke-width="1.8"/>`);
-  o.push(label(hasLimit ? 'LIMIT RANGE' : 'VALUE RANGE', 694, 363, 22, MUTED, 600));
   o.push(fitted(`${rounded(min)} – ${rounded(max)}`, 694, 402, 332, 30, 22));
   o.push(`<rect x="70" y="456" width="792" height="28" rx="14" fill="#053058" stroke="#087DCF" stroke-width="2"/>`);
   o.push(`<g clip-path="url(#barClip)"><rect x="70" y="456" width="${Math.max(0, 792 * ratio)}" height="28" fill="url(#bar)"/><rect x="77" y="458" width="${Math.max(0, 780 * ratio)}" height="5" rx="2" fill="#FFF8BE" opacity="0.6"/></g>`);
@@ -170,7 +169,7 @@ export function buildPortraitSvg(input: RenderInput): string {
 
   o.push(box(26, 808, 1028, 368, 27));
   o.push(`<path d="M68 851 v-10 h7 v10 M81 851 v-22 h7 v22 M94 851 v-16 h7 v16" stroke="${CYAN}" stroke-width="5"/>`);
-  o.push(label(hasLimit ? 'LIMIT TREND (24H)' : 'CURRENT TREND (24H)', 112, 854, 26, WHITE, 800));
+  o.push(label('TREND', 112, 854, 26, WHITE, 800));
   o.push(`<line x1="730" x2="774" y1="841" y2="841" stroke="${GOLD}" stroke-dasharray="10 7" stroke-width="4"/>`);
   o.push(label('24H High', 787, 847, 18, WHITE, 500));
   o.push(`<circle cx="879" cy="840" r="8" fill="${CYAN}"/>`);
