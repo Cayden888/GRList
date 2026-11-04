@@ -54,7 +54,7 @@ describe('dashboard SVG', () => {
   });
 
   it('shows a lettered tile when there is no picture, and the picture when there is one', () => {
-    expect(svgFor().svg).toContain('url(#tile)');
+    expect(svgFor().svg).toContain('>S</text>');
     const withPic = svgFor({}, { thumbnailDataUri: 'data:image/png;base64,AAAA' }).svg;
     expect(withPic).toContain('<image');
     expect(withPic).not.toContain('fill="url(#tile)"');
@@ -81,7 +81,7 @@ describe('dashboard SVG', () => {
 
 describe('themes', () => {
   it('all themes render every label, the disclosure and no invalid values', () => {
-    for (const theme of ['control', 'pro', 'gamer', 'clean'] as const) {
+    for (const theme of ['portrait', 'control', 'pro', 'gamer', 'clean'] as const) {
       const item = sampleItem();
       const sim = simulateDashboard(item, 'theme-test', OPTS);
       const svg = buildDashboardSvg({ item, sim, timestamp: TS, simulatedLabel: 'SIMULATED DATA', theme });
@@ -94,7 +94,7 @@ describe('themes', () => {
 
   it('rejects an unknown theme name in settings', () => {
     expect(() => testConfig({ DASHBOARD_THEME: 'pink' })).toThrow(/DASHBOARD_THEME/);
-    expect(testConfig({}).dashboard.theme).toBe('pro');
+    expect(testConfig({}).dashboard.theme).toBe('portrait');
   });
 });
 
@@ -117,13 +117,13 @@ describe('formatting helpers', () => {
 });
 
 describe('PNG rendering', () => {
-  it('renders a 1600×900 PNG', async () => {
+  it('renders a 1080×1440 PNG', async () => {
     const config = testConfig();
     const g = await generateDashboard(config, { malaysiaDate: '2026-10-09', items: [sampleItem()], timestamp: TS, skipThumbnail: true });
     const meta = await sharp(g.pngPath).metadata();
     expect(meta.format).toBe('png');
-    expect(meta.width).toBe(1600);
-    expect(meta.height).toBe(900);
+    expect(meta.width).toBe(1080);
+    expect(meta.height).toBe(1440);
   });
 
   it('has a font that really draws Chinese characters (no missing-glyph boxes)', async () => {

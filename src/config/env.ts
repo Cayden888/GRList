@@ -46,7 +46,7 @@ export interface AppConfig {
   telegram: { botToken?: string; chatId?: string; timeoutMs: number; captionEnabled: boolean };
   enableScheduler: boolean;
   dryRun: boolean;
-  dashboard: { outputDir: string; width: number; height: number; simulatedLabel: string; theme: 'control' | 'pro' | 'gamer' | 'clean'; labels: DashboardLabels };
+  dashboard: { outputDir: string; width: number; height: number; simulatedLabel: string; theme: 'portrait' | 'control' | 'pro' | 'gamer' | 'clean'; labels: DashboardLabels };
   window: { startMinutes: number; endMinutes: number; startText: string; endText: string };
   retry: { maxAttempts: number; delaysMinutes: number[]; missedJobGraceMinutes: number };
   worker: { checkIntervalMinutes: number; instanceId: string; leaseSeconds: number };
@@ -123,8 +123,8 @@ if (!/simulated|模拟|模擬|simulasi/i.test(simulatedLabel) && !/^live$/i.test
   problems.push('SIMULATED_DATA_LABEL must disclose simulation or be "LIVE"');
 }
 
-  const themeRaw = (str(env, 'DASHBOARD_THEME') ?? 'pro').toLowerCase();
-  if (!['control', 'pro', 'gamer', 'clean'].includes(themeRaw)) problems.push(`DASHBOARD_THEME must be control, pro, gamer or clean (got "${themeRaw}")`);
+  const themeRaw = (str(env, 'DASHBOARD_THEME') ?? 'portrait').toLowerCase();
+  if (!['portrait', 'control', 'pro', 'gamer', 'clean'].includes(themeRaw)) problems.push(`DASHBOARD_THEME must be portrait, control, pro, gamer or clean (got "${themeRaw}")`);
 
   const tsMin = num(env, 'SIM_TIME_SINCE_UPDATE_MIN_MINUTES', 3, problems, { min: 0, int: true });
   const tsMax = num(env, 'SIM_TIME_SINCE_UPDATE_MAX_MINUTES', 45, problems, { min: 0, int: true });
@@ -165,10 +165,10 @@ if (!/simulated|模拟|模擬|simulasi/i.test(simulatedLabel) && !/^live$/i.test
     dryRun: bool(env, 'DRY_RUN', true, problems),
     dashboard: {
       outputDir: str(env, 'DASHBOARD_OUTPUT_DIR') ?? 'output',
-      width: num(env, 'DASHBOARD_WIDTH', 1600, problems, { min: 800, max: 4000, int: true }),
-      height: num(env, 'DASHBOARD_HEIGHT', 900, problems, { min: 450, max: 2250, int: true }),
+      width: num(env, 'DASHBOARD_WIDTH', 1080, problems, { min: 800, max: 4000, int: true }),
+      height: num(env, 'DASHBOARD_HEIGHT', 1440, problems, { min: 450, max: 2250, int: true }),
       simulatedLabel,
-      theme: themeRaw as 'control' | 'pro' | 'gamer' | 'clean',
+      theme: themeRaw as 'portrait' | 'control' | 'pro' | 'gamer' | 'clean',
       labels: {
         current: str(env, 'LABEL_CURRENT_VALUE') ?? DEFAULT_LABELS.current,
         baseline: str(env, 'LABEL_BASELINE_VALUE') ?? DEFAULT_LABELS.baseline,

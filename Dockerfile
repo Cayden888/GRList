@@ -22,6 +22,7 @@ WORKDIR /app
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY src/dashboard/assets ./dist/dashboard/assets
 RUN mkdir -p output && chown node:node output
 USER node
 # A worker, not a web server: no port is exposed.

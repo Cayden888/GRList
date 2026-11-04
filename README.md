@@ -4,7 +4,7 @@ Once a day, at a random time between **10:30 AM and 5:00 PM Malaysia time**, thi
 
 1. reads your public Google Sheet (configuration ranges, not real data),
 2. picks one row and generates **simulated** numbers inside the min/max ranges,
-3. draws a 1600 × 900 dashboard image (SVG → PNG with Sharp) with a simulated 24-hour line chart (design set by `DASHBOARD_THEME`: `pro` default, `control`, `gamer` or `clean`),
+3. draws a 1080 × 1440 portrait dashboard image (SVG → PNG with Sharp) with a simulated 24-hour line chart (design set by `DASHBOARD_THEME`: `portrait` default, `pro`, `control`, `gamer` or `clean`),
 4. posts it to your Telegram group,
 5. records everything in Supabase so restarts never lose or double the day's post.
 
@@ -241,7 +241,7 @@ All settings are explained in `.env.example`.
 
 | Check | How it is verified |
 |---|---|
-| Preview image renders correctly | `npm run preview`, open the PNG (automated test also checks it is a 1600×900 PNG) |
+| Preview image renders correctly | `npm run preview`, open the PNG (automated test also checks it is a 1080×1440 PNG) |
 | All values respect configured ranges | tests run 400 simulated days per field; integers for counts; min = max handled |
 | Chinese and English render correctly | test renders Chinese glyphs and checks they are not missing-glyph boxes; the Dockerfile installs Noto CJK fonts |
 | Graph is labelled as simulated | "Simulated 24-Hour Trend" + "not historical data", checked by tests |
