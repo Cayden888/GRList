@@ -1,0 +1,17 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Secrets – never commit these
+.env
+.env.*
+!.env.example
+
+# Generated images (keep the folder itself)
+output/*
+!output/.gitkeep
+
+# Logs / OS files
+*.log
+.DS_Store
+coverage/

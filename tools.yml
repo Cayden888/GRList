@@ -1,0 +1,119 @@
+# Manual buttons, run from the browser:
+#   GitHub → this repository → Actions → "Dashboard tools" → Run workflow
+#
+# Settings come from GitHub secrets (Settings → Secrets and variables → Actions).
+# Nothing here runs automatically; every run is started by you.
+name: Dashboard tools
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - preview-all-rows
+          - check-sheet
+          - telegram-chat-id
+          - post-test
+          - status
+          - resolve
+      date:
+        description: "Date YYYY-MM-DD (preview: optional, resolve: required)"
+        required: false
+        default: ""
+      confirm:
+        description: 'post-test only: type SEND to really send one test image'
+        required: false
+        default: ""
+      resolve_as:
+        description: "resolve only: what really happened"
+        type: choice
+        required: false
+        default: sent
+        options:
+          - sent
+          - retry
+          - failed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard-tools
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOOGLE_SHEET_CSV_URL: ${{ secrets.GOOGLE_SHEET_CSV_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      DASHBOARD_THEME: ${{ vars.DASHBOARD_THEME }}
+      LABEL_CURRENT_VALUE: ${{ vars.LABEL_CURRENT_VALUE }}
+      LABEL_BASELINE_VALUE: ${{ vars.LABEL_BASELINE_VALUE }}
+      LABEL_LIMIT: ${{ vars.LABEL_LIMIT }}
+      LABEL_VOLUME: ${{ vars.LABEL_VOLUME }}
+      LABEL_OUTPUT: ${{ vars.LABEL_OUTPUT }}
+      LABEL_EVENT_COUNT: ${{ vars.LABEL_EVENT_COUNT }}
+      # Inputs are passed as environment variables (never pasted into commands).
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_DATE: ${{ inputs.date }}
+      INPUT_CONFIRM: ${{ inputs.confirm }}
+      INPUT_RESOLVE_AS: ${{ inputs.resolve_as }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Chinese fonts
+        if: startsWith(inputs.action, 'preview') || inputs.action == 'post-test'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk fonts-ibm-plex > /dev/null && fc-cache -f
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Run
+        run: |
+          set -euo pipefail
+          DATE_ARGS=()
+          if [ -n "$INPUT_DATE" ]; then DATE_ARGS=(--date "$INPUT_DATE"); fi
+          # Show the result on the run's Summary page as well as in the log.
+          exec > >(tee -a result.txt) 2>&1
+          trap 'sleep 1; { echo "### Result: $INPUT_ACTION"; echo; echo "\`\`\`"; sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" result.txt; echo "\`\`\`"; } >> "$GITHUB_STEP_SUMMARY"; grep -v -E "^\s*$|npm (warn|notice)" result.txt | sed -E "s/bot[0-9]+:[A-Za-z0-9_-]+/bot***/g" | tail -n 40 | cut -c1-900 | while IFS= read -r l; do echo "::notice::$l"; done' EXIT
+          case "$INPUT_ACTION" in
+            preview)          npx tsx src/cli.ts preview "${DATE_ARGS[@]}" ;;
+            preview-all-rows) npx tsx src/cli.ts preview --all "${DATE_ARGS[@]}" ;;
+            check-sheet)      npx tsx src/cli.ts check-sheet ;;
+            telegram-chat-id) npx tsx src/cli.ts telegram-chat-id ;;
+            status)           npx tsx src/cli.ts status ;;
+            resolve)          npx tsx src/cli.ts resolve "${DATE_ARGS[@]}" --as "$INPUT_RESOLVE_AS" ;;
+            post-test)
+              # Accept "send", " SEND ", etc.
+              CONFIRM="$(echo "$INPUT_CONFIRM" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+              if [ "$CONFIRM" != "SEND" ]; then
+                echo "::error::Not sent. The confirm box contained '${INPUT_CONFIRM}'. Start a NEW run (not Re-run) and type SEND in the 'confirm' box."
+                exit 1
+              fi
+              npx tsx src/cli.ts post-test --confirm ;;
+            *) echo "Unknown action"; exit 1 ;;
+          esac
+
+      - name: Save images
+        if: always() && (startsWith(inputs.action, 'preview') || inputs.action == 'post-test')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-images
+          path: output/*.png
+          if-no-files-found: ignore
+          retention-days: 7
