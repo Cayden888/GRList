@@ -12,6 +12,8 @@ export interface DashboardItem {
   imageName?: string;
   /** Set only when Image_Name is a real http(s) URL. */
   imageUrl?: string;
+  /** Optional game / play page URL used in Telegram captions. */
+  playUrl?: string;
   titleEn?: string;
   titleCn?: string;
   dataSource?: string;

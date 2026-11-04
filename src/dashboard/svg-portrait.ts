@@ -51,6 +51,8 @@ export function buildPortraitSvg(input: RenderInput): string {
   const ratio = max <= 0 ? 0 : Math.max(0, Math.min(1, mainVal / max));
   const pct = Math.round(ratio * 100);
   const num = mainLimit ? val(mainLimit) : val(sim.current);
+  const displayNum = /^RM\s/i.test(num) ? num : `RM ${num}`;
+  const currentPointNum = /^RM\s/i.test(rounded(mainVal)) ? rounded(mainVal) : `RM ${rounded(mainVal)}`;
   const last = sim.timeSinceUpdate.text ?? (sim.timeSinceUpdate.minutes === undefined ? 'Not available' : `${formatDuration(sim.timeSinceUpdate.minutes)} ago`);
   const hasLimit = Boolean(mainLimit && limitRange);
 
@@ -129,10 +131,24 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(box(25, 279, 1030, 233, 28));
   o.push(`<path d="M83 303 l22 11 -22 11 -22 -11 z M62 326 l21 11 21 -11" fill="none" stroke="${GOLD}" stroke-width="6" stroke-linejoin="round"/>`);
   o.push(label(hasLimit ? (input.labels?.limit ?? 'LIMIT (24H)') : (input.labels?.current ?? 'CURRENT VALUE'), 142, 335, 28, WHITE, 800));
-  o.push(fitted(num, 74, 417, 505, 82, 46, "url(#gold)", 850));
+  o.push(fitted(displayNum, 74, 417, 505, 82, 46, "url(#gold)", 850));
   o.push(`<rect x="70" y="371" width="520" height="75" fill="none"/>`);
   o.push(`<rect x="70" y="456" width="792" height="28" rx="14" fill="#053058" stroke="#087DCF" stroke-width="2"/>`);
   o.push(`<g clip-path="url(#barClip)"><rect x="70" y="456" width="${Math.max(0, 792 * ratio)}" height="28" fill="url(#bar)"/><rect x="77" y="458" width="${Math.max(0, 780 * ratio)}" height="5" rx="2" fill="#FFF8BE" opacity="0.6"/></g>`);
+  // Clearly marked 98% reference: horizontal dash + a down arrow into the bar.
+  // The reference is a configured visual threshold, NOT a predicted outcome.
+  const explodeX = 70 + (792 * 0.98);
+  const fillEndX = 70 + (792 * ratio);
+  // Visible horizontal dashed segment in the unfilled portion of the bar.
+  if (fillEndX < explodeX - 2) {
+    o.push(`<line x1="${Math.max(72, fillEndX + 2)}" y1="470" x2="${explodeX}" y2="470" stroke="#FFF6BD" stroke-width="4" stroke-dasharray="9 6" stroke-linecap="round"/>`);
+  }
+  // Horizontal dashed guide and vertical arrow, above the 98% point.
+  o.push(`<line x1="690" y1="426" x2="${explodeX - 12}" y2="426" stroke="#FFE35D" stroke-width="3" stroke-dasharray="11 7" stroke-linecap="round"/>`);
+  o.push(label('EXPLODE POINT · 98%', 689, 395, 19, '#FFE35D', 800));
+  o.push(`<line x1="${explodeX}" y1="420" x2="${explodeX}" y2="447" stroke="#FFE35D" stroke-width="3"/>`);
+  o.push(`<path d="M ${explodeX - 9} 440 L ${explodeX} 452 L ${explodeX + 9} 440" fill="none" stroke="#FFE35D" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`);
+  o.push(`<line x1="${explodeX}" y1="452" x2="${explodeX}" y2="486" stroke="#FFF7B3" stroke-width="1.6" stroke-dasharray="5 5" opacity="0.85"/>`);
   o.push(`<rect x="888" y="447" width="141" height="46" rx="23" fill="#281D00" stroke="#FFE13A" stroke-width="2"/>`);
   o.push(label(`${pct}%`, 960, 478, 29, "url(#gold)", 800, 'text-anchor="middle"'));
 
@@ -150,8 +166,8 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(label(formatNumber(statLow, 2), 888, 625, 41, '#FF526A', 850, 'text-anchor="middle"'));
   // Four cards. Only show values that actually exist in the configured sheet.
   const metrics = [
-    ...(sim.volume24h ? [{ title: input.labels?.volume ?? 'VOLUME (24H)', value: compact(sim.volume24h), ico: '●' }] : []),
-    ...(sim.output24h ? [{ title: input.labels?.output ?? 'OUTPUT (24H)', value: compact(sim.output24h), ico: '●' }] : []),
+    ...(sim.volume24h ? [{ title: input.labels?.volume ?? 'VOLUME (24H)', value: `RM ${compact(sim.volume24h)}`, ico: '●' }] : []),
+    ...(sim.output24h ? [{ title: input.labels?.output ?? 'OUTPUT (24H)', value: `RM ${compact(sim.output24h)}`, ico: '●' }] : []),
     ...(sim.eventCount24h ? [{ title: input.labels?.eventCount ?? 'EVENT COUNT (24H)', value: compact(sim.eventCount24h), ico: '●' }] : []),
     { title: 'LAST UPDATE', value: last, ico: '●' },
   ];
@@ -188,8 +204,8 @@ export function buildPortraitSvg(input: RenderInput): string {
   if (d) o.push(`<path d="${d}" fill="none" stroke="${CYAN}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>`);
   if (currentPoint) {
     o.push(`<circle cx="${currentPoint.x}" cy="${currentPoint.y}" r="8" fill="#A5F7FF" stroke="${CYAN}" stroke-width="4"/>`);
-    o.push(`<rect x="${currentPoint.x - 108}" y="${Math.max(870, currentPoint.y - 54)}" width="108" height="35" rx="13" fill="${CYAN}"/>`);
-    o.push(label(rounded(mainVal), currentPoint.x - 54, Math.max(894, currentPoint.y - 31), 20, '#001328', 850, 'text-anchor="middle"'));
+    o.push(`<rect x="${currentPoint.x - 136}" y="${Math.max(870, currentPoint.y - 54)}" width="136" height="35" rx="13" fill="${CYAN}"/>`);
+    o.push(label(currentPointNum, currentPoint.x - 68, Math.max(894, currentPoint.y - 31), 18, '#001328', 850, 'text-anchor="middle"'));
   }
 
   // The footer card is a range position summary (not a percent of maximum, nor RTP).

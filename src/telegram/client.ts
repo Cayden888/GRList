@@ -47,10 +47,22 @@ export function truncateCaption(caption: string): string {
 /** Caption wording. Each part can be changed in the Supabase "dashboard_caption" table. */
 export interface CaptionTexts { title: string; testTitle: string; message: string; updated: string; footer: string }
 export const DEFAULT_CAPTION: CaptionTexts = {
-  title: '📊 Daily Dashboard',
-  testTitle: '🧪 Test post – Daily Dashboard',
-  message: 'Simulated data for demonstration purposes.',
-  updated: 'Updated: {time}',
+  title: '🎰 {title} · {source}',
+  testTitle: '🧪 Test post – {title} · {source}',
+  message: `🔥 冲 · 离爆奖线只差 RM {gap_to_limit}，吃够久了
+🟢 累计金额 RM {limit}（{limit_percent}%）· 爆奖线 RM {limit_max}
+🟠 实际 RTP {current}% vs 标准 {baseline}% · 比标准少吐 {rtp_shortfall}%（≈ RM {rtp_gap_amount_m}）
+💥 24h 已爆奖 {event_count} 次 · 平均爆奖 RM {limit_min} – {limit_max}
+📊 投注 RM {volume} · 派彩 RM {output}
+🔄 {updated_at} 更新
+
+-------------------------------
+
+🍽 还在吃 · {updated_at}
+
+🔥 {title} · {source}
+RTP 只有 {current}%，比标准少吐 {rtp_shortfall}%，离爆奖线 RM {gap_to_limit}，机会在这`,
+  updated: '<a href="{play_url}">▶️ PLAY NOW</a>',
   footer: '-',
 };
 
@@ -157,6 +169,7 @@ export class TelegramClient implements TelegramSender {
     form.append('chat_id', this.chatId);
     form.append('photo', new Blob([bytes], { type: 'image/png' }), path.basename(pngPath));
     if (caption) form.append('caption', truncateCaption(caption));
+    if (caption) form.append('parse_mode', 'HTML');
 
     const result = await this.call<{ message_id: number }>('sendPhoto', { method: 'POST', body: form }, true);
     if (typeof result?.message_id !== 'number') {

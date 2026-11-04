@@ -14,6 +14,7 @@ import type { DashboardItem, NumericRange, RowIssue, SheetParseResult } from './
 export const COLUMNS = {
   imageName: 'Image_Name',
   imageLink: 'Image_Link',
+  playUrl: 'Play_Url',
   titleEn: 'Title_EN',
   titleCn: 'Title_CN',
   dataSource: 'Data_Source',
@@ -39,6 +40,7 @@ export const COLUMNS = {
 
 /** Other header names accepted for the picture column (matched case-insensitively). */
 export const IMAGE_LINK_ALIASES = [COLUMNS.imageLink, 'Link', 'Image_URL', 'Image_Url', 'Image', 'Picture', 'Picture_Link', 'Game_Image', 'Game_Image_URL', 'Thumbnail', 'Thumbnail_URL'] as const;
+export const PLAY_URL_ALIASES = [COLUMNS.playUrl, 'Game_Url', 'Game_URL', 'Game_Link', 'Play_Link', 'Play_URL', 'URL'] as const;
 
 const REQUIRED_HEADERS = [COLUMNS.currentMin, COLUMNS.currentMax];
 
@@ -173,6 +175,14 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
       }
       return undefined;
     };
+    /** First non-blank cell among the accepted play-link column names. */
+    const playUrlCell = (): string | undefined => {
+      for (const name of PLAY_URL_ALIASES) {
+        const v = textCell(cell(name));
+        if (v) return v;
+      }
+      return undefined;
+    };
     const rowIssues: RowIssue[] = [];
     const warn = (message: string) => rowIssues.push({ rowNumber, severity: 'warning', message });
     const fail = (message: string) => rowIssues.push({ rowNumber, severity: 'error', message });
@@ -269,6 +279,10 @@ export function parseSheetCsv(csvText: string): SheetParseResult {
       if (!isHttpUrl(rawImageLink)) issues.push({ rowNumber, severity: 'warning', message: 'Picture link is not a web link (must start with https://) – no picture' });
       else if (/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(rawImageLink)) issues.push({ rowNumber, severity: 'warning', message: 'Picture link points to a Drive folder, not a file – open the image and use its own share link' });
     }
+
+    const rawPlayUrl = playUrlCell();
+    const playUrl = rawPlayUrl && isHttpUrl(rawPlayUrl) ? rawPlayUrl : undefined;
+    if (rawPlayUrl && !playUrl) issues.push({ rowNumber, severity: 'warning', message: 'Play link is not a web link (must start with https://) – caption link hidden' });
 
     items.push({
       id,
