@@ -107,7 +107,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(`<line x1="176" y1="27" x2="176" y2="83" stroke="#E9BD4D" stroke-width="2"/>`);
   o.push(label('GAME ANALYTICS', 208, 62, 29, WHITE, 800));
   o.push(`<rect x="836" y="29" width="211" height="46" rx="23" fill="#001328" stroke="#A8DDFC" stroke-width="1.7"/>`);
-  o.push(label('INTERNAL USE ONLY', 860, 58, 18, WHITE, 700));
+  o.push(label('INTERNAL USE ONLY', 941.5, 58, 18, WHITE, 700, 'text-anchor="middle"'));
   o.push(`<line x1="0" x2="1080" y1="109" y2="109" stroke="#00CDFF" stroke-opacity=".7"/>`);
 
   // Item identity and genuine row metadata.
@@ -122,7 +122,8 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(fitted(`${source ? `SOURCE: ${source}   |   ` : ''}REGION: ${region}`, 203, 226, 600, 21, 16, MUTED, 400));
   o.push(fitted(`${input.labels?.current ?? 'CURRENT VALUE'}: ${val(sim.current)}${item.titleCn ? `   |   ${item.titleCn}` : ''}`, 203, 253, 580, 18, 14, MUTED, 500));
   o.push(`<rect x="808" y="150" width="234" height="55" rx="27" fill="#082F29" stroke="#60F585" stroke-width="2"/>`);
-  o.push(label('LIVE DATA', 854, 184, 21, '#82FFB0', 700));
+  o.push(`<circle cx="846" cy="177" r="7" fill="#FF4B4B"/>`);
+  o.push(label('LIVE DATA', 930, 184, 21, '#82FFB0', 700, 'text-anchor="middle"'));
 
   // Main hero card. Limit is sourced from the sheet if supplied.
   o.push(box(25, 279, 1030, 233, 28));
@@ -143,13 +144,13 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(`<line x1="379" y1="550" x2="379" y2="631" stroke="#01BFE9" stroke-width="1.8"/>`);
   o.push(`<line x1="723" y1="550" x2="723" y2="631" stroke="#01BFE9" stroke-width="1.8"/>`);
   if (sim.baseline) {
-    o.push(label(input.labels?.baseline ?? 'BASELINE VALUE', 67, 570, 21, WHITE, 650));
-    o.push(label(val(sim.baseline), 143, 625, 42, WHITE, 800));
+    o.push(label(input.labels?.baseline ?? 'BASELINE VALUE', 203, 570, 21, WHITE, 650, 'text-anchor="middle"'));
+    o.push(label(val(sim.baseline), 203, 625, 42, WHITE, 800, 'text-anchor="middle"'));
   }
-  o.push(label('24H HIGH', 430, 570, 22, '#66FA96', 700));
-  o.push(label(formatNumber(statHigh, 2), 498, 625, 41, '#63F58C', 850));
-  o.push(label('24H LOW', 766, 570, 22, '#FF5C73', 700));
-  o.push(label(formatNumber(statLow, 2), 828, 625, 41, '#FF526A', 850));
+  o.push(label('24H HIGH', 551, 570, 22, '#66FA96', 700, 'text-anchor="middle"'));
+  o.push(label(formatNumber(statHigh, 2), 551, 625, 41, '#63F58C', 850, 'text-anchor="middle"'));
+  o.push(label('24H LOW', 888, 570, 22, '#FF5C73', 700, 'text-anchor="middle"'));
+  o.push(label(formatNumber(statLow, 2), 888, 625, 41, '#FF526A', 850, 'text-anchor="middle"'));
   // Four cards. Only show values that actually exist in the configured sheet.
   const metrics = [
     ...(sim.volume24h ? [{ title: input.labels?.volume ?? 'VOLUME (24H)', value: compact(sim.volume24h), ico: '●' }] : []),
@@ -163,16 +164,17 @@ export function buildPortraitSvg(input: RenderInput): string {
     o.push(box(x, 669, w, 118, 22));
     o.push(`<circle cx="${x + 38}" cy="699" r="9" fill="none" stroke="${CYAN}" stroke-width="4"/>`);
     o.push(fitted(m.title, x + 67, 706, w - 80, 18, 12, WHITE, 650));
-    o.push(fitted(m.value, x + 30, 758, w - 50, 33, 19, i === 2 ? GOLD : WHITE, 800));
+    const valueText = fitText(m.value, w - 50, 33, 19);
+    o.push(label(valueText.text, x + (w / 2), 758, valueText.size, i === 2 ? GOLD : WHITE, 800, 'text-anchor="middle"'));
   });
 
   o.push(box(26, 808, 1028, 368, 27));
   o.push(`<path d="M68 851 v-10 h7 v10 M81 851 v-22 h7 v22 M94 851 v-16 h7 v16" stroke="${CYAN}" stroke-width="5"/>`);
   o.push(label(hasLimit ? 'LIMIT TREND (24H)' : 'CURRENT TREND (24H)', 112, 854, 26, WHITE, 800));
   o.push(`<line x1="730" x2="774" y1="841" y2="841" stroke="${GOLD}" stroke-dasharray="10 7" stroke-width="4"/>`);
-  o.push(label('Range', 787, 847, 18, WHITE, 500));
+  o.push(label('24H High', 787, 847, 18, WHITE, 500));
   o.push(`<circle cx="879" cy="840" r="8" fill="${CYAN}"/>`);
-  o.push(label('Generated', 897, 847, 17, WHITE, 500));
+  o.push(label('Value', 897, 847, 17, WHITE, 500));
   [0, 1, 2, 3].forEach(i => {
     const yy = gy + i * (gh / 3);
     o.push(`<line x1="${gx}" x2="${gx + gw}" y1="${yy}" y2="${yy}" stroke="#23618E" stroke-opacity=".58"/>`);
@@ -199,8 +201,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(label('DATA', 144, 1248, 25, WHITE, 800));
   o.push(label('SUMMARY (24H)', 144, 1282, 22, WHITE, 800));
   o.push(`<line x1="398" x2="398" y1="1220" y2="1294" stroke="#DDEEFF" stroke-width="1.7"/>`);
-  o.push(label(hasLimit ? 'CURRENT / RANGE MAX' : 'CURRENT / MAX', 432, 1244, 20, WHITE, 500));
-  o.push(fitted(`${num} / ${rounded(max)}`, 431, 1289, 361, 36, 25, WHITE, 800));
+  o.push(label('Extrabonus88.com', 603, 1270, 31, WHITE, 800, 'text-anchor="middle"'));
   o.push(`<rect x="816" y="1207" width="227" height="105" rx="26" fill="#4B3200" stroke="${GOLD}" stroke-width="3.5"/>`);
   o.push(label(`${pct}%`, 927, 1270, 54, "url(#gold)", 850, 'text-anchor="middle"'));
   o.push(label('OF RANGE', 928, 1296, 20, WHITE, 700, 'text-anchor="middle"'));
