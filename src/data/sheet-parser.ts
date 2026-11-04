@@ -38,7 +38,7 @@ export const COLUMNS = {
 } as const;
 
 /** Other header names accepted for the picture column (matched case-insensitively). */
-export const IMAGE_LINK_ALIASES = [COLUMNS.imageLink, 'Link', 'Image_URL', 'Image_Url', 'Picture', 'Picture_Link'] as const;
+export const IMAGE_LINK_ALIASES = [COLUMNS.imageLink, 'Link', 'Image_URL', 'Image_Url', 'Image', 'Picture', 'Picture_Link', 'Game_Image', 'Game_Image_URL', 'Thumbnail', 'Thumbnail_URL'] as const;
 
 const REQUIRED_HEADERS = [COLUMNS.currentMin, COLUMNS.currentMax];
 

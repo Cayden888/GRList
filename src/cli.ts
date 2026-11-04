@@ -79,7 +79,7 @@ async function cmdCheckSheet(config: AppConfig): Promise<void> {
   console.log(`Valid rows: ${sheet.items.length} of ${sheet.totalRows}`);
   for (const i of sheet.items) {
     const cards = [i.baseline && 'baseline', i.volume24h && 'volume', i.output24h && 'output', i.eventCount24h && 'events'].filter(Boolean).join(', ') || 'none';
-    console.log(`  row ${i.rowNumber}: id=${i.id}  current=${i.current.min}–${i.current.max}  optional cards: ${cards}`);
+    console.log(`  row ${i.rowNumber}: id=${i.id}  current=${i.current.min}–${i.current.max}  image=${i.imageUrl ? 'linked' : 'NO LINK (letter placeholder)'}  optional cards: ${cards}`);
   }
   const errors = sheet.issues.filter((i) => i.severity === 'error');
   const warnings = sheet.issues.filter((i) => i.severity === 'warning');

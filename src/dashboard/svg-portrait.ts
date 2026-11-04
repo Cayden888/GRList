@@ -8,7 +8,6 @@ import { readFileSync } from 'node:fs';
 import type { RenderInput } from './svg-clean.js';
 import { FONT_STACK } from './svg-clean.js';
 import { escapeXml as esc, fitText, formatValue, formatNumber, formatDuration } from './format.js';
-import { formatMalaysiaDisplay } from '../utils/time.js';
 
 const WIDTH = 1080;
 const HEIGHT = 1440;
@@ -53,7 +52,6 @@ export function buildPortraitSvg(input: RenderInput): string {
   const pct = Math.round(ratio * 100);
   const num = mainLimit ? val(mainLimit) : val(sim.current);
   const last = sim.timeSinceUpdate.text ?? (sim.timeSinceUpdate.minutes === undefined ? 'Not available' : `${formatDuration(sim.timeSinceUpdate.minutes)} ago`);
-  const formattedTime = formatMalaysiaDisplay(input.timestamp);
   const hasLimit = Boolean(mainLimit && limitRange);
 
   const origLo = item.current.min;
@@ -124,7 +122,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(fitted(`${source ? `SOURCE: ${source}   |   ` : ''}REGION: ${region}`, 203, 226, 600, 21, 16, MUTED, 400));
   o.push(fitted(`${input.labels?.current ?? 'CURRENT VALUE'}: ${val(sim.current)}${item.titleCn ? `   |   ${item.titleCn}` : ''}`, 203, 253, 580, 18, 14, MUTED, 500));
   o.push(`<rect x="808" y="150" width="234" height="55" rx="27" fill="#082F29" stroke="#60F585" stroke-width="2"/>`);
-  o.push(label('SIMULATED DATA', 832, 184, 21, '#82FFB0', 700));
+  o.push(label('LIVE DATA', 854, 184, 21, '#82FFB0', 700));
 
   // Main hero card. Limit is sourced from the sheet if supplied.
   o.push(box(25, 279, 1030, 233, 28));
@@ -207,10 +205,8 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(label(`${pct}%`, 927, 1270, 54, "url(#gold)", 850, 'text-anchor="middle"'));
   o.push(label('OF RANGE', 928, 1296, 20, WHITE, 700, 'text-anchor="middle"'));
 
-  // Honest generated-data disclosure with exact generation timestamp.
-  o.push(label(input.demo ? 'DEMO CONFIGURATION  •  SIMULATED DATA' : 'SIMULATED DATA  •  INTERNAL DEMONSTRATION', 30, 1352, 19, '#C7D8EB', 700));
-  o.push(fitted(`Generated ${formattedTime}`, 30, 1380, 1000, 18, 15, MUTED, 500));
-  o.push(label('Illustrative values and chart; not real measurements or forecasts.', 30, 1405, 17, MUTED, 400));
+  // The portrait layout deliberately ends at the summary card. Internal
+  // classification / generation notices are not rendered in the image footer.
   o.push('</svg>');
   return o.join('');
 }

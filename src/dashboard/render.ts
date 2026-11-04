@@ -14,26 +14,48 @@ export async function renderPng(svg: string, outPath: string): Promise<{ path: s
 
 const MAX_THUMB_BYTES = 5 * 1024 * 1024;
 
-/** For a Google Drive file, the other public addresses that serve the same picture. */
+/**
+ * Public picture URLs, including common Google Drive share/thumbnail variants.
+ * Try image endpoints before Drive's download page (which sometimes returns HTML).
+ */
 export function imageUrlCandidates(url: string): string[] {
-  const id = /drive\.usercontent\.google\.com\/download\?id=([A-Za-z0-9_-]{10,})/.exec(url)?.[1];
+  let id: string | undefined;
+  try {
+    const u = new URL(url);
+    if (/(^|\.)drive\.google\.com$|^drive\.usercontent\.google\.com$|^lh3\.googleusercontent\.com$/.test(u.hostname)) {
+      id = /\/(?:file\/d|d)\/([A-Za-z0-9_-]{10,})/.exec(u.pathname)?.[1]
+        ?? /\/thumbnail\/([A-Za-z0-9_-]{10,})/.exec(u.pathname)?.[1]
+        ?? u.searchParams.get('id') ?? undefined;
+    }
+  } catch { /* Invalid links are reported in fetchThumbnail. */ }
   if (!id) return [url];
-  return [url, `https://lh3.googleusercontent.com/d/${id}=w600`, `https://drive.google.com/thumbnail?id=${id}&sz=w600`];
+  return [...new Set([
+    `https://drive.google.com/thumbnail?id=${id}&sz=w600`,
+    `https://lh3.googleusercontent.com/d/${id}=w600`,
+    `https://drive.usercontent.google.com/download?id=${id}&export=view`,
+    `https://drive.google.com/uc?export=download&id=${id}`,
+    url,
+  ])];
 }
 
 async function downloadImage(url: string, timeoutMs: number): Promise<Buffer> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+    redirect: 'follow',
+    headers: { 'Accept': 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8' },
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const type = res.headers.get('content-type') ?? '';
-  if (!type.startsWith('image/')) {
-    throw new Error(type.includes('html')
-      ? 'Google sent a web page instead of the picture - the Drive file is probably not shared as "Anyone with the link"'
-      : `not an image (${type || 'unknown type'})`);
-  }
+  const type = (res.headers.get('content-type') ?? '').toLowerCase();
+  if (type.includes('text/html')) throw new Error('Link returned an HTML page rather than a public image');
   const len = Number(res.headers.get('content-length') ?? '0');
   if (len > MAX_THUMB_BYTES) throw new Error('image too large');
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > MAX_THUMB_BYTES) throw new Error('image too large');
+  // A valid image sometimes comes back as octet-stream; inspect its bytes.
+  const metadata = await sharp(buf).metadata().catch(() => undefined);
+  if (!metadata || !['jpeg', 'png', 'webp', 'gif', 'avif', 'tiff', 'heif'].includes(metadata.format ?? '')) {
+    throw new Error(`Response isn't an image (${type || 'unknown type'})`);
+  }
   return buf;
 }
 
@@ -53,6 +75,6 @@ export async function fetchThumbnail(url: string, timeoutMs = 8000): Promise<str
       firstError ??= e as Error;
     }
   }
-  log.warn('Picture skipped', { url, reason: firstError?.message });
+  log.warn('Picture skipped: check the row Image_Link/Link column and image sharing permissions', { url, reason: firstError?.message, tried: imageUrlCandidates(url).length });
   return undefined;
 }

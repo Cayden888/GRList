@@ -33,3 +33,9 @@ Do not remove the existing Telegram / sheet / Supabase settings. The new rendere
 - The badge and footer explicitly disclose simulated data; an unsupported RTP-verified claim is not made.
 
 The original render themes remain available explicitly (`pro`, `control`, `gamer`, `clean`).
+
+## Portrait status and artwork (November 2026)
+
+- Portrait header badge now reads `LIVE DATA`; the bottom image disclaimer is hidden. This is a display change only: metrics using generated inputs and the illustrative trend are still generated, not independently verified live measurements.
+- The game art is taken from each sheet row’s image URL. If Google Drive denies or throttles access, a letter placeholder appears. Use a direct, publicly accessible image URL from another host in the sheet image-link column.
+- Telegram scheduling and sheet-driven calculations were not intentionally changed.
