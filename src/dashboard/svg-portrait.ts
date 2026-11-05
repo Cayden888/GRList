@@ -111,8 +111,9 @@ export function buildPortraitSvg(input: RenderInput): string {
   });
   const area = coords.length ? `${d} L ${gx + gw} ${gy + gh} L ${gx} ${gy + gh} Z` : '';
   const currentPoint = coords[coords.length - 1];
-  const statHigh = hasValidLimit && illustratedEvents > 0 ? max : hasValidLimit ? Math.max(...points) : (sim.trend.length ? Math.max(...sim.trend.map(p => p.value)) : sim.current.value);
-  const statLow = hasValidLimit ? Math.min(...points) : (sim.trend.length ? Math.min(...sim.trend.map(p => p.value)) : sim.current.value);
+  // Preserve the original high/low statistics independently of the illustrative trend curve.
+  const statHigh = sim.trend.length ? Math.max(...sim.trend.map(p => p.value)) : sim.current.value;
+  const statLow = sim.trend.length ? Math.min(...sim.trend.map(p => p.value)) : sim.current.value;
 
   const o: string[] = [];
   o.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${WIDTH} ${HEIGHT}" font-family="${FONT_STACK}">`);
@@ -215,7 +216,6 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(box(26, 808, 1028, 368, 27));
   o.push(`<path d="M68 851 v-10 h7 v10 M81 851 v-22 h7 v22 M94 851 v-16 h7 v16" stroke="${CYAN}" stroke-width="5"/>`);
   o.push(label('TREND', 112, 854, 26, WHITE, 800));
-  o.push(label('ILLUSTRATIVE', 216, 850, 14, MUTED, 550));
   o.push(`<line x1="730" x2="774" y1="841" y2="841" stroke="${GOLD}" stroke-dasharray="10 7" stroke-width="4"/>`);
   o.push(label('24H High', 787, 847, 18, WHITE, 500));
   o.push(`<circle cx="879" cy="840" r="8" fill="${CYAN}"/>`);
