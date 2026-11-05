@@ -1,204 +1,252 @@
-# 🏆 终极聊天争霸赛 THE ULTIMATE CHAT BATTLE — Bot
+# Telegram Daily Dashboard (simulated data)
 
-GitHub → Supabase → Railway。Bot 自动统计群员有效发言、计分、抓 Link/QR（群警告 + 私讯审核人员）、每周一 11AM 把 Top 20 名单发给客服。Bot 不删任何消息、不 Ban 人。
+Once a day, at a random time between **10:30 AM and 5:00 PM Malaysia time**, this worker:
 
----
+1. reads your public Google Sheet (configuration ranges, not real data),
+2. picks one row and generates **simulated** numbers inside the min/max ranges,
+3. draws a 1080 × 1440 portrait dashboard image (SVG → PNG with Sharp) with a simulated 24-hour line chart (design set by `DASHBOARD_THEME`: `portrait` default, `pro`, `control`, `gamer` or `clean`),
+4. posts it to your Telegram group,
+5. records everything in Supabase so restarts never lose or double the day's post.
 
-## 一、活动规则（Bot 已实现）
+Every image says **SIMULATED DATA** and its footer states the values are not real measurements or forecasts. The disclosure cannot be switched off (the app refuses to start if `SIMULATED_DATA_LABEL` doesn't say "simulated").
 
-| 项目 | 设定 |
-|---|---|
-| 周期 | 每周一 **10:30** 换期（截止统计 + 新一期开始），周一 **11:00** 发名单（马来西亚时间） |
-| 每条有效发言 | +1 分 |
-| 当天第 5 条有效发言 | +5 分（5条任务） |
-| 当天第 10 条有效发言 | +5（10条任务）+5（全部任务完成）= +10 分 |
-| 上限 | 无 |
-| 每天满 10 条 | 10 + 5 + 10 = **25 分**，之后每条 +1 |
-| 赢家 | 积分 Top 20，各 RM8.8 |
-| 领奖条件 | 需 1000 流水 —— **Bot 查不到流水，名单 CSV 留了一栏给客服核对** |
-
-**不计分：**
-- 只发表情 / 符号 / 单个字（"好"、"😂😂"、"!!!"）
-- 同一个字重复（"哈哈哈哈"、"111111"）、短句循环（"哈喽哈喽哈喽"）
-- 同一期内重复发过的内容（"哈哈好" 和 "哈哈哈好!!" 算同一句）
-- 3 秒内连发（防刷屏，可调）
-- 转发消息、贴纸、纯图片、指令
-- 群管理员不参加排名
-
-**发链接 / 二维码 → 只警告 + 送审核（Bot 不删消息、不 Ban、不自动取消资格）：**
-- 发链接（http、www、t.me、xxx.com/.vip 等，包括 "t。me" 这类变形）或 **图片里有二维码**：
-  1. Bot 在群里回复警告：请勿发送链接，已提交审核，可能被取消本期资格（会显示本期第几次警告）
-  2. Bot 私讯审核人员 **@nicolenicola（ID 8875069703）**：玩家 ID、Username、群、积分排名、违规次数、**为什么可能被取消资格**、原内容、原消息链接
-  3. 报告下面有两个按钮：**❌ 取消本期资格** / **✅ 忽略**，由审核人员决定
-- 之前几乎没聊过天（有效发言 < 5 条）就发 Link，报告会标注 **🎣 疑似钓鱼号**，由管理员自己手动处理（Bot 不 Ban）
-- 那条带链接的消息不计分
-- 群管理员发链接不处理
-
-⚠️ **@nicolenicola 必须先私讯 Bot 按一次 /start**，不然 Telegram 不允许 Bot 私讯她，会收不到报告。
-
-同分时，**先达到该分数的人排前面**。
+**Safe by default:** `ENABLE_SCHEDULER=false` and `DRY_RUN=true`. Nothing is ever posted until you turn both off yourself.
 
 ---
 
-## 二、部署步骤
+## Contents
 
-### 1. 创建 Bot
-1. BotFather → `/newbot` → 拿到 `BOT_TOKEN`
-2. BotFather → `/setprivacy` → 选这个 Bot → **Disable**（不关的话 Bot 看不到群里的普通聊天）
-3. BotFather → `/setcommands`：
-   ```
-   points - 查看我的积分和排名
-   quest - 今日任务进度
-   top - 实时排行榜 Top 10
-   rules - 活动规则
-   ```
-4. 把 Bot 拉进活动群（不需要删除 / 封禁权限，Bot 不会删消息或 Ban 人）
-5. 把 Bot 也拉进客服群
-6. **@nicolenicola 私讯 Bot 按 /start**（才能收到违规报告）
-7. 在每个群里发 `/id`，记下 chat_id（-100 开头）
+1. [Run it on your computer](#1-run-it-on-your-computer)
+2. [Connect your Google Sheet](#2-connect-your-google-sheet)
+3. [Set up the Telegram bot](#3-set-up-the-telegram-bot)
+4. [Set up Supabase](#4-set-up-supabase)
+5. [Put the code in a private GitHub repository](#5-put-the-code-in-a-private-github-repository)
+6. [Deploy to Railway](#6-deploy-to-railway)
+7. [Turn on daily posting](#7-turn-on-daily-posting)
+8. [Day-to-day: status, problems, "uncertain" posts](#8-day-to-day)
+9. [How it works](#9-how-it-works)
+10. [Command reference](#10-command-reference)
+11. [Final checklist](#11-final-checklist)
 
-### 2. Supabase
-1. 新建 Project（Region 选 Singapore）
-2. SQL Editor → 粘贴 `supabase/schema.sql` 全部内容 → Run（可以重复跑，不会删数据）
-3. Settings → API → 复制 **Project URL** 和 **service_role key**
+---
 
-### 3. GitHub
+## 0. No computer needed: buttons on GitHub
+
+Everything in sections 1–3 and 8 can also be done from the browser:
+
+1. Add your settings as **secrets**: repository → **Settings → Secrets and variables → Actions → New repository secret**. Names: `GOOGLE_SHEET_CSV_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (add each one when you reach that step).
+2. Repository → **Actions → Dashboard tools → Run workflow**, choose an action:
+   - `preview` / `preview-all-rows`: makes the image(s). Download them from the run page under **Artifacts → dashboard-images**.
+   - `check-sheet`, `telegram-chat-id`, `status`: the result appears on the run's Summary page under **Result**.
+   - `post-test`: sends one test image; only works if you type `SEND` in the confirm box.
+   - `resolve`: settles an "uncertain" day (fill in the date and pick what happened).
+
+The **Tests** workflow runs automatically on every code change and never sends anything.
+
+## 1. Run it on your computer
+
+You need **Node.js 22 or newer** (download the "LTS" installer from nodejs.org). Then, in a terminal inside this folder:
+
 ```bash
-git init && git add . && git commit -m "chat battle bot"
-git remote add origin git@github.com:你的帐号/chat-battle-bot.git
-git push -u origin main
+npm ci                      # install the exact package versions in package-lock.json
+cp .env.example .env        # your private settings file (Windows: copy .env.example .env)
+npm run preview             # makes an image in the output/ folder
 ```
-`.env` 已在 `.gitignore`，token 不会上传。
 
-### 4. Railway
-1. New Project → Deploy from GitHub repo → 选这个 repo
-2. Variables → 照 `.env.example` 填（至少填：`BOT_TOKEN`、`SUPABASE_URL`、`SUPABASE_SERVICE_KEY`、`GROUP_IDS`、`CS_CHAT_ID`；审核人员默认就是 8875069703）
-3. 部署完看 Logs 有 `Chat Battle bot started` 就是成功了
-4. **只能开 1 个 replica**（同一个 token 两个实例同时跑会冲突）
+Open the PNG in `output/`. Without a sheet configured, the preview uses built-in demo ranges and the image carries an extra **DEMO CONFIGURATION** badge.
 
----
+Useful preview options:
 
-## 三、指令
+```bash
+npm run preview -- --date 2026-10-10     # what that day's image would look like
+npm run preview -- --item 11-o           # a specific row (ids are shown by check-sheet)
+npm run preview -- --all                 # one image per valid row
+npm test                                 # run the automated tests (never sends anything)
+```
 
-| 指令 | 谁 | 作用 |
+Preview never touches Telegram or Supabase.
+
+## 2. Connect your Google Sheet
+
+1. In Google Sheets click **Share → General access → Anyone with the link → Viewer**.
+2. In `.env` paste your normal sheet link:
+   ```
+   GOOGLE_SHEET_CSV_URL=https://docs.google.com/spreadsheets/d/1Wikan76r6oZaFF_J0ptPg4XKY9a9HBdZ63VSCUR0lLg/edit?gid=0#gid=0
+   ```
+   It is converted to the CSV download address automatically (the `gid=0` picks the first tab). Alternatively set `GOOGLE_SHEET_ID` + `GOOGLE_SHEET_GID` (or `GOOGLE_SHEET_TAB` with the tab's name).
+3. Check it:
+   ```bash
+   npm run check-sheet
+   npm run preview
+   ```
+
+How the sheet is read:
+
+| Column(s) | What happens |
+|---|---|
+| `Title_EN`, `Title_CN` | At least one is required. Both shown when present. |
+| `Current_Value_Min/Max` | **Required.** Rows with blanks, text, or min > max are skipped and logged. |
+| `Current_Value` | Ignored unless `CURRENT_VALUE_SOURCE=sheet`; then used as the fixed main value. |
+| `Baseline_Value_Min/Max`, `Volume_24H_*`, `Output_24H_*`, `Event_Count_24H_*` | Optional. Blank or invalid → that card is hidden (with a log line). Event Count is always a whole number. |
+| `Low_Limit_24H_Min`, `High_Limit_24H_Max` | Optional. A random number in this range is shown as the big **Limit (24H)** value in the middle. |
+| `Data_Source`, `Region`, `Last_Updated`, `Next_Update` | Shown as small labels. Placeholder words like `Static`, `-`, `N/A` count as blank. |
+| `Time_Since_Last_Update` | A number = minutes; short text shown as-is; blank → a simulated duration (3–45 min by default). |
+| `Random_Timer_Seconds` | Read and validated, but intentionally **not drawn**: a countdown would suggest something is about to happen. |
+| `Image_Name` | Used for the row's id. If it is an `http(s)` image link, it is shown as a small thumbnail; otherwise it is just a name. |
+| `Image_Link` or `Link` (optional column) | A picture for that row: a Google Drive share link (file shared as "Anyone with the link") or any direct image link. Used instead of `Image_Name` for the picture, so `Image_Name` can stay a plain name/number. Use the link of the **image file itself** (right-click the image in Drive → Share → Copy link), not the folder link. Rows left blank simply have no picture. |
+
+Columns are matched by header name (order doesn't matter), quoted commas and Chinese text are fine, empty rows are skipped. **About your current sheet:** every row has the same ranges, `Title_CN` is empty, and the Volume / Output / Event Count columns are blank, so images show Current Value, Baseline, Difference and a simulated Time Since Last Update. Fill those columns in and their cards appear automatically.
+
+### Changing the card titles on the image
+
+**Easiest: in Supabase.** Run `supabase/migrations/20261102000000_dashboard_labels.sql` once in **SQL Editor**. Then open **Table Editor → dashboard_labels**: `previous_header` shows the sheet columns each card comes from, and you type the new title in `new_header` (double-click a cell, Enter to save). The next image uses them; clear a cell to go back to the default. Text is shown in capitals.
+
+Or set any of these in **Railway → Variables** (and, for the GitHub buttons, in **GitHub → Settings → Secrets and variables → Actions → Variables**): `LABEL_CURRENT_VALUE`, `LABEL_BASELINE_VALUE`, `LABEL_LIMIT`, `LABEL_VOLUME`, `LABEL_OUTPUT`, `LABEL_EVENT_COUNT`. Text is shown in capitals. Delete the variable to go back to the default title.
+
+### Changing the text under the Telegram picture
+
+Run `supabase/migrations/20261102010000_dashboard_caption.sql` once in Supabase **SQL Editor**, then edit **Table Editor → dashboard_caption → text**. Placeholders such as `{title}`, `{current}`, `{baseline}`, `{difference}`, `{limit}`, `{volume}`, `{output}`, `{event_count}`, `{region}`, `{date}`, `{time}` are filled with that post's (simulated) values; a line whose value is missing that day is left out. An empty cell uses the default wording, a single `-` leaves the part out, and one cell may hold several lines.
+
+## 3. Set up the Telegram bot
+
+1. **Create the bot:** in Telegram open **@BotFather** → send `/newbot` → choose a name and a username ending in `bot`. BotFather replies with a token like `123456789:AA…`. Put it in `.env` as `TELEGRAM_BOT_TOKEN=`. Treat it like a password.
+2. **Add it to your group:** open the group → group name → **Add members** → search the bot's username → Add.
+3. **Permissions:** the bot needs to be able to send messages and photos. In most groups members can do that by default. If your group restricts members, open the group → **Edit → Permissions** and allow *Send Messages* and *Send Photos* (or make the bot an admin with permission to post).
+4. **Find the group's chat ID:** send any message in the group, e.g. `/start@YourBotName`, then run:
+   ```bash
+   npm run telegram:chat-id
+   ```
+   It lists the chats the bot has seen. Group IDs are negative, often starting with `-100`. Put it in `.env` as `TELEGRAM_CHAT_ID=`. This command sends nothing.
+5. **Send one test image** (this is the only way to post manually, and it needs `--confirm`):
+   ```bash
+   npm run post:test -- --confirm
+   ```
+   The caption starts with "🧪 Test post". It doesn't count as the day's post.
+
+## 4. Set up Supabase
+
+1. Go to supabase.com → **New project** (free plan is fine). Pick a region close to Malaysia (e.g. Singapore). Save the database password somewhere safe (the app doesn't need it).
+2. **Create the tables:** open **SQL Editor → New query**, paste the whole file `supabase/migrations/20261009000000_init.sql`, and click **Run**. You should see "Success". (Running it again is harmless.)
+3. **Project URL:** **Project Settings → Data API** (or **API**) → copy the URL like `https://abcd1234.supabase.co` → `SUPABASE_URL=`.
+4. **Service role key:** **Project Settings → API Keys** → the **service_role** secret key (on newer projects, a "secret" key starting `sb_secret_`) → `SUPABASE_SERVICE_ROLE_KEY=`. This key bypasses all security rules: only put it in `.env` and Railway variables, never in GitHub, screenshots or chats.
+5. Check it: `npm run status` → "No schedule rows yet" means the connection works.
+
+The tables have Row Level Security on with no public policies, and the job functions are only executable by the service role, so the public "anon" key can't read or change anything.
+
+## 5. Put the code in a private GitHub repository
+
+I could not create the repository from my side (no GitHub login available), so do this once:
+
+1. On github.com click **+ → New repository**, name it e.g. `telegram-dashboard`, choose **Private**, and do **not** add a README/.gitignore (the project has them).
+2. In a terminal in this folder (the project is already a git repository with one commit):
+   ```bash
+   git remote add origin https://github.com/YOUR-USERNAME/telegram-dashboard.git
+   git branch -M main
+   git push -u origin main
+   ```
+   If asked for a password, use a GitHub **personal access token** (GitHub → Settings → Developer settings → Personal access tokens) or sign in with GitHub Desktop.
+3. Double-check on GitHub that there is **no `.env` file** in the repository. `.gitignore` excludes it.
+
+## 6. Deploy to Railway
+
+1. railway.com → **New Project → Deploy from GitHub repo** → allow access to your private repo → select it.
+2. Railway finds the `Dockerfile` and builds it (it installs Chinese fonts and compiles the code). The start command is built in: `node dist/index.js`. You don't need to type one; if Railway asks, use that.
+3. Open the service → **Variables** → add everything from your `.env` **except** `LOCAL_SHEET_CSV_PATH`. To start, keep `ENABLE_SCHEDULER=false` and `DRY_RUN=true`.
+4. Service **Settings**:
+   - **Restart policy:** "On Failure" (or "Always").
+   - **Replicas:** 1. (More would still be safe, just pointless.)
+   - Make sure "Serverless" / app sleeping is **off**: a worker must stay running.
+   - No public domain or port is needed: this is a background worker, not a website.
+5. Deploy, then open **Deployments → View logs**. You should see `Starting telegram-dashboard worker {...}` (no secrets are printed) and `Scheduler is DISABLED…`.
+
+To run the manual commands against the Railway settings, either run them on your computer with the same values in `.env` (simplest), or open a shell on the service (`railway ssh` with the Railway CLI) and use `node dist/cli.js preview`, `node dist/cli.js post-test --confirm`, `node dist/cli.js status`.
+
+## 7. Turn on daily posting
+
+Do this only after the preview and the test post look right.
+
+1. **Dry run day (optional but recommended):** set `ENABLE_SCHEDULER=true`, keep `DRY_RUN=true`. Logs show `Today's post is scheduled for … MYT`; at that time it renders the image but sends nothing and marks the day `skipped`. `npm run status` shows the row.
+2. **Go live:** set `DRY_RUN=false` (with `ENABLE_SCHEDULER=true`). Railway restarts the worker. From now on one image is posted per day.
+
+If you go live on a day that was already marked `skipped`, today stays skipped (posting starts tomorrow). To post today anyway: `npm run resolve -- --date YYYY-MM-DD --as retry`.
+
+If the worker starts after 5:00 PM, it records the day as `missed` and starts again tomorrow. It never posts outside the window just because it started up.
+
+## 8. Day-to-day
+
+```bash
+npm run status          # last 10 days: scheduled time, status, attempts, Telegram message id
+```
+
+Statuses: `pending` → waiting · `processing` → posting now · `retry` → will try again at the time shown · `sent` · `failed` · `missed` · `skipped` (dry run) · `uncertain` (see below).
+
+**What happens when something goes wrong**
+
+| Problem | What the worker does |
+|---|---|
+| Sheet unreachable, image error, Telegram not reachable, Telegram rate limit | Retries after 2, 10, then 30 minutes (max 4 attempts, never past midnight), reusing the same row and numbers. |
+| Telegram refuses (wrong chat ID, bot removed, no permission) | Marks the day `failed` with a hint in `last_error`. Fix the setting; posting resumes the next day. |
+| Worker restarts or redeploys | Reads today's row from Supabase: same time, same status. Nothing is lost or doubled. |
+| Worker was offline at the scheduled time | Posts when it returns if that is within 90 minutes (`MISSED_JOB_GRACE_MINUTES`), otherwise marks the day `missed`. |
+| **Telegram timed out / connection cut while sending** | Marks the day **`uncertain`** and does **not** resend, because Telegram may have received it and resending could double-post. |
+
+**Settling an `uncertain` day:** look in the group, then run one of:
+
+```bash
+npm run resolve -- --date 2026-10-09 --as sent     # it did arrive – never send again that day
+npm run resolve -- --date 2026-10-09 --as retry    # it did not arrive – send it at the next check (same day only)
+```
+
+Railway logs show a heartbeat every 15 minutes, e.g. `Heartbeat: today (2026-10-09) status=pending, next attempt 2026-10-09 14:37:12 MYT…`. If the heartbeats stop, the worker isn't running.
+
+## 9. How it works
+
+- **Same numbers on retry:** the row is picked with a seed made from the Malaysia date; the numbers and graph use a seed made from the date + row id, stored in Supabase. Selection, each metric, and the graph each use their own random stream, so adding a card never changes the graph. The next day gets a fresh simulation.
+- **The graph:** 25 hourly points (−24h … 0h), smooth but not flat, always inside the Current Value min–max, last point exactly equal to the big number. Graph points are not stored: they are reproducible from the seed.
+- **One post per day:** `daily_schedule.malaysia_date` is unique. A job is claimed with one atomic database update, so if two workers ever run at once (e.g. during a Railway redeploy) only one can claim it. The worker records "sending started" just before calling Telegram, so a crash mid-send becomes `uncertain`, never a duplicate.
+- **No busy polling:** the worker sleeps until the scheduled time (checking the database every 15 minutes at most), about 100 small queries per day.
+- **Time zone:** all scheduling uses Malaysia time (UTC+8, no daylight saving), independent of the server's own clock setting.
+
+```
+src/
+  config/env.ts            settings + validation
+  data/                    sheet download, CSV parsing/validation, demo rows
+  simulation/              seeds, row selection, metrics, 24h trend
+  dashboard/               SVG layout, number formatting, PNG rendering
+  telegram/client.ts       sendPhoto + careful error classification
+  database/                Supabase repository (+ in-memory one for tests)
+  scheduler/               daily time planner, job runner, worker loop
+  index.ts                 worker entry (Railway)
+  cli.ts, cli-ops.ts       manual commands
+supabase/migrations/       SQL tables, constraints, atomic job functions
+tests/                     Vitest tests (Telegram and Supabase mocked)
+```
+
+## 10. Command reference
+
+| Local | On Railway | Needs |
 |---|---|---|
-| `/points` | 所有人 | 本期积分、排名、今天还差几条完成任务 |
-| `/quest`（或打「任务」） | 所有人 | 今日任务清单 ✅/⬜。审核人员可以 `/quest @username` 看别人的 |
-| `/top` | 所有人 | 实时 Top 10 |
-| `/topX` | 审核人员 / 管理员 | 和 /top 一样，但 Bot 的回复不会自动删除 |
-| `/rulesX` | 审核人员 / 管理员 | 和 /rules 一样，但 Bot 的回复不会自动删除 |
-| `/rules` | 所有人 | 活动规则 |
-| `/dq 原因` | 管理员 / 审核人员 | 群里**回复**某人消息，或在任何地方 `/dq <user_id> 原因` → 手动取消资格 |
-| `/undq` | 管理员 | 回复某人消息或 `/undq <user_id>` → 恢复资格（误判时用） |
-| `/report` | 管理员 | 马上拿本期实时 Top 20 名单 |
-| `/report last` | 管理员 | 重新拿上一期名单（客服弄丢时用） |
-| `/id` | 所有人 | 查 chat_id / user_id |
+| `npm run preview` | `node dist/cli.js preview` | nothing |
+| `npm run check-sheet` | `node dist/cli.js check-sheet` | sheet |
+| `npm run telegram:chat-id` | `node dist/cli.js telegram-chat-id` | bot token |
+| `npm run post:test -- --confirm` | `node dist/cli.js post-test --confirm` | sheet + Telegram |
+| `npm run status` | `node dist/cli.js status` | Supabase |
+| `npm run resolve -- --date D --as sent\|retry\|failed` | `node dist/cli.js resolve …` | Supabase |
+| `npm test` | – | nothing |
+| `npm run build && npm start` | (automatic) | see `.env.example` |
 
----
+All settings are explained in `.env.example`.
 
-## 四、周一 11AM 自动做的事
-1. 客服群收到：Top 20 名单（名字、@username、User ID、积分）+ **CSV 文件**（Excel 可开，有「流水≥1000（客服核对）」和「已派奖」两栏空白）
-2. 活动群收到：赢家公告，提醒「需 1000 流水，自行联系客服领取」
+## 11. Final checklist
 
-客服流程：打开 CSV → 用 User ID 在后台查流水 → 满 1000 才派 RM8.8 → 在「已派奖」打勾。
-
----
-
-## 五、把 /points 放进 Daily Popup Bot
-两个 Bot 共用同一个 Supabase，Daily Popup Bot 直接读分数就好，见 `integrations/daily_popup_points.py`（里面有 Python 和 Node.js 两种接法）。
-
-⚠️ 如果两个 Bot 都在同一个群，群员打 `/points` 两个 Bot 都会回。二选一：
-- 在 BotFather 的 commands 里只给其中一个 Bot 设 `points`，并让群员用 `/points@那个Bot名字`；或
-- Daily Popup Bot 只在私聊里回 `/points`
-
----
-
-## 六、可以调的参数（Railway Variables）
-见 `.env.example`。常用：
-- `MIN_INTERVAL_SEC` 防刷屏间隔，默认 3 秒
-- `REVIEWER_IDS` 违规审核人员，默认 8875069703（@nicolenicola），可加多个
-- `LOG_CHAT_ID` 选填，违规报告同时发一份到群
-- `NEWBIE_THRESHOLD` 报告里标注「疑似钓鱼」的门槛，默认历史有效发言 < 5
-- `TOP_N` / `PRIZE_TEXT` / `TURNOVER_REQ` 赢家人数 / 奖励 / 流水要求
-- `ROLLOVER_TIME` / `REPORT_TIME` 换期时间 / 发名单时间
-
-## 七、数据表（Supabase）
-| 表 | 内容 |
+| Check | How it is verified |
 |---|---|
-| `cb_users` | 玩家资料、历史有效发言数 |
-| `cb_event_users` | 每期积分、是否取消资格 |
-| `cb_daily` | 每天任务进度 |
-| `cb_msg_hashes` | 防重复（只存 hash，**不存聊天原文**） |
-| `cb_violations` | 违规记录 |
-
-## 八、自动删除 Bot 回复（Railway Variables，单位秒，0 = 不删）
-| 变量 | 默认 | 删什么 |
-|---|---|---|
-| `CONGRATS_DELETE_SEC` | 30 | 恭喜完成 5条 / 10条任务 |
-| `REPLY_DELETE_SEC` | 20 | /points、/quest、/top、/rules、/id、/debug 等回复 |
-| `WARNING_DELETE_SEC` | 0（保留） | 违规警告、/dq /undq 的结果（保留方便之后回复他 unban） |
-| `DELETE_COMMAND_MSG` | 1 | 玩家打的 /points、分数 等指令也在 20 秒后删（Bot 要有删除消息权限）；0 = 不删 |
-
-不会删：/topX、/rulesX 的回复，周一赢家公告、客服群名单、私讯审核人员的报告、私聊 Bot 的回复、玩家的聊天消息。
-
-## 九、开始 / 结束活动（审核人员 / 管理员）
-| 指令 | 作用 |
-|---|---|
-| `/eventend` | 结束活动：停止计分、不抓链接、玩家的 /points /quest /top /rules / 分数 / 任务 都回复「没有进行中」、周一不自动发名单。积分保留 |
-| `/eventstart` | 重新开始，全部恢复 |
-| `/eventstatus` | 查看现在是开始还是结束 |
-| `/eventreset` | 本周积分清零（按按钮确认，清零前先私讯名单备份） |
-| `/eventreset all` | 全部资料清零（测试完、正式开始前用） |
-
-状态存在 Supabase 的 `cb_settings` 表，Bot 重启也会记得。第一次用前要在 Supabase 跑 `supabase/add_event_switch.sql`。
-开始 / 结束时会在活动群发公告；不想发就在 Railway 加 `ANNOUNCE_EVENT_SWITCH=0`。
-
-## 十、换群 / 设定活动群（审核人员）
-| 指令 | 作用 |
-|---|---|
-| `/setgroup` | 在要做活动的群里打：只用这个群（其他群移除） |
-| `/setgroup add` | 在群里打：加上这个群（多个群，分数合并成一个排行榜） |
-
-- 设定存在 Supabase，优先于 Railway 的 `GROUP_IDS`，Bot 重启也记得
-- 普通群被 Telegram 升级成超级群（换了 ID）时，Bot 会自动跟上新 ID
-- ⚠️ 测试群不要加进活动群，否则测试的分数会上榜。正式开始前：正式群打 `/setgroup` → `/eventreset all`
-
-## 十一、全新安装（从零开始）
-1. Supabase SQL Editor 跑 `supabase/schema.sql`（已包含全部表和函数，含活动开关、清零）
-2. 代码上传 GitHub → Railway 连 repo → Variables 填 `BOT_TOKEN`、`SUPABASE_URL`、`SUPABASE_SERVICE_KEY`、`REVIEWER_IDS`、`CS_CHAT_ID`
-3. BotFather `/setprivacy` → Disable；Bot 拉进活动群设管理员（删除消息权限）
-4. 活动群里审核人员打 `/setgroup`，再用普通号打 `/debug` 检查
-5. 审核人员打 `/list` 看全部指令
-
-（`add_event_switch.sql`、`add_reset.sql` 只给旧版升级用；全新安装跑 `schema.sql` 就够）
-
-## 十二、华语群 + 马来文群
-| 群 | ID | 语言 |
-|---|---|---|
-| 华语群 | `-1004398257314` | 华语（zh） |
-| 马来文群 | `-1003974610649` | 马来文（ms） |
-
-- 设定：华语群打 `/setgroup zh`，马来文群打 `/setgroup add ms`
-- 玩家看到的所有文字（/points、/quest、/top、/rules、警告、恭喜、活动开始/结束、周一赢家公告）按群的语言显示
-- 审核人员看到的（违规报告、/debug、/list、客服名单）一律华语
-- 私聊 Bot：玩家 Telegram 语言是马来文 / 印尼文就用马来文，其他用华语
-- 马来文群也可以直接打 `markah`、`skor`（查分）或 `misi`、`tugasan`（任务）
-- **两个群分数合并，只有一个排行榜、一份 Top 20**
-- 要改任何玩家看到的文字：改 `texts.py`
-
-## 十三、发链接：警告 + 禁言阶梯
-| 第几次 | 处罚 |
-|---|---|
-| 第 1 次 | 禁言 1 天 |
-| 第 2 次 | 禁言 7 天 |
-| 第 3 次起 | 永久禁言（还在群里、看得到消息，但不能发言） |
-
-- **一个群被禁言 = 所有活动群一起禁言**（华语群 + 马来文群）。如果他当时不在另一个群，之后在那个群一开口 Bot 就补禁言
-- 次数是**历史累计**（`WARN_COUNT_SCOPE=week` 可改成每周一重新算）
-- 阶梯可改：Railway 加 `MUTE_STEPS=1d,7d,perm`（h = 小时，d = 天，perm = 永久；空的 = 只警告不禁言）
-- 群里的警告 2 小时后自动删除（`WARNING_DELETE_SEC=7200`）
-- Bot 要有群管理员的「**封禁用户**」权限才能禁言；`/groups`、`/debug` 可以检查
-- 审核人员按「✅ 忽略」= 解除禁言 + 这次不算次数 + 删警告
-- `/unmute @username`：解除禁言（私讯 Bot 打 = 所有活动群）
-- `/resetwarn @username`：警告次数清零
-- 第一次用要在 Supabase 跑 `supabase/add_mute.sql`
+| Preview image renders correctly | `npm run preview`, open the PNG (automated test also checks it is a 1080×1440 PNG) |
+| All values respect configured ranges | tests run 400 simulated days per field; integers for counts; min = max handled |
+| Chinese and English render correctly | test renders Chinese glyphs and checks they are not missing-glyph boxes; the Dockerfile installs Noto CJK fonts |
+| Graph is labelled as simulated | "Simulated 24-Hour Trend" + "not historical data", checked by tests |
+| Daily schedule persists across restarts | stored in Supabase; tested with a fresh worker on the same database |
+| Posting window uses Malaysia time | tests: 500 days all between 10:30 and 17:00 MYT; UTC/MYT midnight boundaries |
+| Duplicate posting protection works | tested with concurrent workers in tests **and** against a real PostgreSQL database (20 simultaneous claims → 1 winner) |
+| Telegram test posting works | **your step:** `npm run post:test -- --confirm` once the bot and chat ID are set |
+| Scheduling stays off until you enable it | `ENABLE_SCHEDULER=false` and `DRY_RUN=true` by default |

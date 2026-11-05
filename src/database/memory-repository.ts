@@ -26,7 +26,7 @@ export class MemoryScheduleRepository implements ScheduleRepository {
     return r ? this.clone(r) : null;
   }
 
-  async ensureDaily(malaysiaDate: string, scheduledAt: Date, status: 'pending' | 'missed' = 'pending', note?: string): Promise<ScheduleRow> {
+  async ensureDaily(malaysiaDate: string, scheduledAt: Date, status: 'pending' | 'missed' | 'skipped' = 'pending', note?: string): Promise<ScheduleRow> {
     if (!this.rows.has(malaysiaDate)) {
       const t = this.iso();
       this.rows.set(malaysiaDate, {

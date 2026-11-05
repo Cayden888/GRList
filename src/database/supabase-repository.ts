@@ -47,7 +47,7 @@ export class SupabaseScheduleRepository implements ScheduleRepository {
     return (data as ScheduleRow | null) ?? null;
   }
 
-  async ensureDaily(malaysiaDate: string, scheduledAt: Date, status: 'pending' | 'missed' = 'pending', note?: string): Promise<ScheduleRow> {
+  async ensureDaily(malaysiaDate: string, scheduledAt: Date, status: 'pending' | 'missed' | 'skipped' = 'pending', note?: string): Promise<ScheduleRow> {
     const rows = await this.rpc('ensure_daily_schedule', {
       p_date: malaysiaDate,
       p_scheduled_at: scheduledAt.toISOString(),

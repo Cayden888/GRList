@@ -16,6 +16,8 @@ import { log } from '../utils/logger.js';
 import { formatMalaysiaDateTime, malaysiaDateString, startOfNextMalaysiaDay } from '../utils/time.js';
 import { runDailyJob, type JobDeps, type JobOutcome } from './job-runner.js';
 import { planDailyTime } from './planner.js';
+import { loadPostsPerWeek } from '../database/schedule-settings.js';
+import { shouldPostOnDate } from './weekly.js';
 
 export interface TickResult {
   job: ScheduleRow;
@@ -41,6 +43,13 @@ export class DailyScheduler {
     const today = malaysiaDateString(now);
     const existing = await repo.getByDate(today);
     if (existing) return existing;
+    const postsPerWeek = await loadPostsPerWeek(config);
+    if (!shouldPostOnDate(today, postsPerWeek)) {
+      const note = `Not a posting day (${postsPerWeek} random day(s) per Monday-Sunday MYT week)`;
+      const job = await repo.ensureDaily(today, now, 'skipped', note);
+      log.info(`[${today}] ${note}`);
+      return job;
+    }
     const plan = planDailyTime(today, config.window, now);
     const job = await repo.ensureDaily(today, plan.scheduledAt, plan.status, plan.status === 'missed' ? plan.note : undefined);
     if (job.status === 'missed') log.warn(`[${today}] ${job.last_error ?? 'No post today'}`);

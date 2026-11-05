@@ -46,7 +46,7 @@ export interface HistoryEntry {
 export interface ScheduleRepository {
   getByDate(malaysiaDate: string): Promise<ScheduleRow | null>;
   /** Inserts the day's row if missing and returns whichever row exists. */
-  ensureDaily(malaysiaDate: string, scheduledAt: Date, status?: 'pending' | 'missed', note?: string): Promise<ScheduleRow>;
+  ensureDaily(malaysiaDate: string, scheduledAt: Date, status?: 'pending' | 'missed' | 'skipped', note?: string): Promise<ScheduleRow>;
   recoverStale(): Promise<ScheduleRow[]>;
   /** Atomic claim. Returns null when another worker won or the job is not due. */
   claim(id: string, workerId: string, leaseSeconds: number, maxAttempts: number): Promise<ScheduleRow | null>;
