@@ -1,0 +1,97 @@
+"""所有配置从环境变量读取（Railway → Variables）。"""
+import os
+from datetime import datetime, timedelta, time, date
+from zoneinfo import ZoneInfo
+
+
+def _ids(name: str) -> set[int]:
+    raw = os.getenv(name, "")
+    return {int(x) for x in raw.replace(" ", "").split(",") if x.strip().lstrip("-").isdigit()}
+
+
+def _hhmm(name: str, default: str) -> time:
+    h, m = os.getenv(name, default).split(":")
+    return time(int(h), int(m))
+
+
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]      # 用 service_role key，不要用 anon key
+
+GROUP_IDS = _ids("GROUP_IDS")          # 参加活动的中文群（可多个，逗号分隔）
+CS_CHAT_ID = int(os.getenv("CS_CHAT_ID", "0") or 0)     # 客服群：周一收 Top20 名单
+LOG_CHAT_ID = int(os.getenv("LOG_CHAT_ID", "0") or 0)   # 违规日志群（可与客服群相同）
+# 每个群用哪种语言：zh = 华语，ms = 马来文（没写的群默认华语）
+# 也可以在群里打 /setgroup add ms 或 /setgroup add zh 来设定，会存在 Supabase
+def _langs(raw: str) -> dict[int, str]:
+    out = {}
+    for part in raw.replace(" ", "").split(","):
+        if ":" in part:
+            gid, lang = part.rsplit(":", 1)
+            if gid.lstrip("-").isdigit() and lang in ("zh", "ms"):
+                out[int(gid)] = lang
+    return out
+
+
+GROUP_LANGS = _langs(os.getenv("GROUP_LANGS", "-1004398257314:zh,-1003974610649:ms"))
+REVIEWER_IDS = _ids("REVIEWER_IDS") or {8875069703}   # 违规审核人员（默认 @nicolenicola），私讯收违规报告
+ADMIN_IDS = _ids("ADMIN_IDS")          # 额外管理员（群管理员自动算）
+
+TZ = ZoneInfo(os.getenv("TZ_NAME", "Asia/Kuala_Lumpur"))
+
+# 活动周期：每周一 ROLLOVER_TIME 换期（统计截止 + 新一期开始），REPORT_TIME 发名单
+ROLLOVER_TIME = _hhmm("ROLLOVER_TIME", "10:30")
+REPORT_TIME = _hhmm("REPORT_TIME", "11:00")
+
+TOP_N = int(os.getenv("TOP_N", "20"))
+PRIZE_TEXT = os.getenv("PRIZE_TEXT", "RM8.8")
+TURNOVER_REQ = os.getenv("TURNOVER_REQ", "1000")
+
+MIN_INTERVAL_SEC = int(os.getenv("MIN_INTERVAL_SEC", "3"))   # 两条有效发言最少间隔
+NEWBIE_THRESHOLD = int(os.getenv("NEWBIE_THRESHOLD", "5"))   # 历史有效发言 < 这个数 + 发Link = 报告里标注「疑似钓鱼」
+QR_CHECK = os.getenv("QR_CHECK", "0") == "1"   # 0 = 发二维码不警告（只是不计分）；1 = 二维码也当违规警告
+
+ANNOUNCE_EVENT_SWITCH = os.getenv("ANNOUNCE_EVENT_SWITCH", "1") == "1"   # /eventstart /eventend 时在活动群发公告（0 = 不发）
+
+# ===== 自动删除 Bot 在群里的回复（秒；0 = 不删除）=====
+# 以后要改时间：去 Railway → Variables 改这几个值，不用改代码
+CONGRATS_DELETE_SEC = int(os.getenv("CONGRATS_DELETE_SEC", "30"))   # 恭喜完成 5条 / 10条任务
+REPLY_DELETE_SEC = int(os.getenv("REPLY_DELETE_SEC", "20"))         # /points /quest /top /rules /id /debug 等指令的回复
+WARNING_DELETE_SEC = int(os.getenv("WARNING_DELETE_SEC", "7200"))   # 发链接的群警告：默认 2 小时后删除（7200 秒）
+DELETE_COMMAND_MSG = os.getenv("DELETE_COMMAND_MSG", "1") == "1"    # 1 = 玩家打的 /points、分数 等指令也在 REPLY_DELETE_SEC 后删掉（Bot 需要管理员「删除消息」权限）；0 = 不删
+# 不会自动删除：/dq /undq 的结果、/topX /rulesX 的回复、周一赢家公告、客服群名单、私讯给审核人员的报告、私聊 Bot 的回复
+
+
+# ===== 发链接的禁言阶梯 =====
+# 第 1 次、第 2 次、第 3 次…… 用逗号隔开；h = 小时，d = 天，perm = 永久禁言（还能看群，不能发言）
+# 超过的次数都用最后一个。设成空的 = 只警告，不禁言
+MUTE_STEPS = [x.strip().lower() for x in os.getenv("MUTE_STEPS", "1d,7d,perm").split(",") if x.strip()]
+# 警告次数怎么算：all = 历史累计（推荐）；week = 每周一重新算
+WARN_COUNT_SCOPE = os.getenv("WARN_COUNT_SCOPE", "all").lower()
+
+
+def now() -> datetime:
+    return datetime.now(TZ)
+
+
+def event_key_for(dt: datetime) -> date:
+    """dt 属于哪一期：以最近一个『周一 ROLLOVER_TIME』为期初，返回那个周一的日期。"""
+    dt = dt.astimezone(TZ)
+    monday = (dt - timedelta(days=dt.weekday())).date()
+    start = datetime.combine(monday, ROLLOVER_TIME, TZ)
+    if dt < start:
+        monday -= timedelta(days=7)
+    return monday
+
+
+def current_event() -> date:
+    return event_key_for(now())
+
+
+def event_range(key: date) -> tuple[datetime, datetime]:
+    start = datetime.combine(key, ROLLOVER_TIME, TZ)
+    return start, start + timedelta(days=7)
+
+
+def today() -> date:
+    return now().date()
