@@ -1,8 +1,8 @@
 /**
  * Portrait dashboard (1080×1440), inspired by the approved cyan-and-gold reference.
  * All numeric values come from the existing sheet/simulation pipeline.
- * The chart is illustrative: the original normalized simulated trend is scaled
- * to the selected limit's configured range and ends at its generated value.
+ * The chart is illustrative, not recorded hourly history: it rises gradually
+ * to the current value, while the reference line marks the configured maximum.
  */
 import { readFileSync } from 'node:fs';
 import type { RenderInput } from './svg-clean.js';
@@ -56,16 +56,26 @@ export function buildPortraitSvg(input: RenderInput): string {
   const last = sim.timeSinceUpdate.text ?? (sim.timeSinceUpdate.minutes === undefined ? 'Not available' : `${formatDuration(sim.timeSinceUpdate.minutes)} ago`);
   const hasLimit = Boolean(mainLimit && limitRange);
 
-  const origLo = item.current.min;
-  const origSpan = item.current.max - origLo;
-  const points = sim.trend.map((p) => {
-    const norm = origSpan === 0 ? 0.5 : Math.max(0, Math.min(1, (p.value - origLo) / origSpan));
-    return hasLimit ? min + norm * (max - min) : p.value;
-  });
-  if (points.length) points[points.length - 1] = mainVal;
-  const trendMin = hasLimit ? min : item.current.min;
-  const trendMax = hasLimit ? max : item.current.max;
+  // The sheet supplies a current reading, not an hourly time series. Draw an
+  // *illustrative*, gradually increasing path whose final point is exactly the
+  // current amount. A reset / threshold crossing must never be invented without
+  // actual timestamped event data. Use 0..limitMax on the Y axis so a value that
+  // is 92% of the configured limit also appears at 92% of chart height.
+  const hasValidLimit = hasLimit && Number.isFinite(max) && max > 0;
+  const trendMin = hasValidLimit ? 0 : item.current.min;
+  const trendMax = hasValidLimit ? Math.max(max, mainVal, 1) : item.current.max;
   const span = Math.max(1, trendMax - trendMin);
+  const sampleCount = Math.max(25, sim.trend.length);
+  const startValue = hasValidLimit
+    ? Math.max(0, Math.min(mainVal, mainVal * 0.76))
+    : Math.min(mainVal, trendMin + span * 0.24);
+  const points = Array.from({ length: sampleCount }, (_, i) => {
+    const t = i / Math.max(1, sampleCount - 1);
+    // Gradual climb with only small visible changes in gradient. Monotonically
+    // increasing so the graphic does not falsely suggest an earlier peak/reset.
+    const smoothClimb = t * t * (3 - 2 * t);
+    return startValue + (mainVal - startValue) * smoothClimb;
+  });
   const gx = 114, gy = 886, gw = 875, gh = 212;
   const coords = points.map((v, i) => ({
     x: gx + (i / Math.max(1, points.length - 1)) * gw,
@@ -80,8 +90,8 @@ export function buildPortraitSvg(input: RenderInput): string {
   });
   const area = coords.length ? `${d} L ${gx + gw} ${gy + gh} L ${gx} ${gy + gh} Z` : '';
   const currentPoint = coords[coords.length - 1];
-  const statHigh = sim.trend.length ? Math.max(...sim.trend.map(p => p.value)) : sim.current.value;
-  const statLow = sim.trend.length ? Math.min(...sim.trend.map(p => p.value)) : sim.current.value;
+  const statHigh = hasValidLimit ? Math.max(...points) : (sim.trend.length ? Math.max(...sim.trend.map(p => p.value)) : sim.current.value);
+  const statLow = hasValidLimit ? Math.min(...points) : (sim.trend.length ? Math.min(...sim.trend.map(p => p.value)) : sim.current.value);
 
   const o: string[] = [];
   o.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${WIDTH} ${HEIGHT}" font-family="${FONT_STACK}">`);
@@ -152,7 +162,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(`<rect x="888" y="447" width="141" height="46" rx="23" fill="#281D00" stroke="#FFE13A" stroke-width="2"/>`);
   o.push(label(`${pct}%`, 960, 478, 29, "url(#gold)", 800, 'text-anchor="middle"'));
 
-  // Compact reading strip; preserves baseline / current inputs and uses the simulated trend's high/low.
+  // Compact reading strip; historical high/low are only illustrative while hourly records are unavailable.
   o.push(box(26, 529, 1028, 122, 23));
   o.push(`<line x1="379" y1="550" x2="379" y2="631" stroke="#01BFE9" stroke-width="1.8"/>`);
   o.push(`<line x1="723" y1="550" x2="723" y2="631" stroke="#01BFE9" stroke-width="1.8"/>`);
@@ -198,7 +208,7 @@ export function buildPortraitSvg(input: RenderInput): string {
     o.push(`<line x1="${xx}" x2="${xx}" y1="${gy}" y2="${gy + gh}" stroke="#194F80" stroke-opacity=".5"/>`);
     if (i % 2 === 0) o.push(label(`${String(i * 3).padStart(2, '0')}:00`, xx, 1140, 18, WHITE, 500, 'text-anchor="middle"'));
   }
-  // The top and bottom dashed lines show the range; the area is not an observed historical time series.
+  // Dashed line is the configured maximum; the area is NOT an observed hourly time series.
   o.push(`<line x1="${gx}" x2="${gx + gw}" y1="${gy + 4}" y2="${gy + 4}" stroke="${GOLD}" stroke-dasharray="11 8" stroke-opacity=".9" stroke-width="2.8"/>`);
   if (area) o.push(`<path d="${area}" fill="url(#chartFill)"/>`);
   if (d) o.push(`<path d="${d}" fill="none" stroke="${CYAN}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>`);
