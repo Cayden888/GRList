@@ -56,26 +56,47 @@ export function buildPortraitSvg(input: RenderInput): string {
   const last = sim.timeSinceUpdate.text ?? (sim.timeSinceUpdate.minutes === undefined ? 'Not available' : `${formatDuration(sim.timeSinceUpdate.minutes)} ago`);
   const hasLimit = Boolean(mainLimit && limitRange);
 
-  // The sheet supplies a current reading, not an hourly time series. Draw an
-  // *illustrative*, gradually increasing path whose final point is exactly the
-  // current amount. A reset / threshold crossing must never be invented without
-  // actual timestamped event data. Use 0..limitMax on the Y axis so a value that
-  // is 92% of the configured limit also appears at 92% of chart height.
+  // The sheet supplies a current reading and a 24h event COUNT, not an hourly
+  // history. This curve is an ILLUSTRATION: one event means one illustrative
+  // approach to the reference line followed by a reset, then a climb to the
+  // current value. No timestamps or event amounts are claimed as observed.
   const hasValidLimit = hasLimit && Number.isFinite(max) && max > 0;
   const trendMin = hasValidLimit ? 0 : item.current.min;
   const trendMax = hasValidLimit ? Math.max(max, mainVal, 1) : item.current.max;
   const span = Math.max(1, trendMax - trendMin);
-  const sampleCount = Math.max(25, sim.trend.length);
-  const startValue = hasValidLimit
-    ? Math.max(0, Math.min(mainVal, mainVal * 0.76))
-    : Math.min(mainVal, trendMin + span * 0.24);
-  const points = Array.from({ length: sampleCount }, (_, i) => {
-    const t = i / Math.max(1, sampleCount - 1);
-    // Gradual climb with only small visible changes in gradient. Monotonically
-    // increasing so the graphic does not falsely suggest an earlier peak/reset.
-    const smoothClimb = t * t * (3 - 2 * t);
-    return startValue + (mainVal - startValue) * smoothClimb;
-  });
+  const eventCount = Math.max(0, Math.floor(sim.eventCount24h?.value ?? 0));
+  const illustratedEvents = hasValidLimit ? Math.min(eventCount, 3) : 0;
+  const sampleCount = Math.max(97, sim.trend.length);
+  const startValue = hasValidLimit ? Math.min(mainVal, max * 0.45) : Math.min(mainVal, trendMin + span * 0.24);
+  type Anchor = { t: number; v: number };
+  const anchors: Anchor[] = [{ t: 0, v: startValue }];
+  if (illustratedEvents > 0) {
+    // Earlier peak(s) touch the configured high line; an illustrated reset
+    // follows each peak, then the latest segment rises to the exact reading.
+    for (let n = 0; n < illustratedEvents; n++) {
+      const peakTime = 0.26 + n * (0.49 / Math.max(1, illustratedEvents));
+      anchors.push({ t: peakTime - 0.065, v: max * 0.84 });
+      anchors.push({ t: peakTime, v: max });
+      anchors.push({ t: peakTime + 0.035, v: max * 0.15 });
+    }
+  }
+  anchors.push({ t: 1, v: mainVal });
+  const climb = (v: number) => Math.max(trendMin, Math.min(trendMax, v));
+  const valueAt = (t: number): number => {
+    for (let k = 1; k < anchors.length; k++) {
+      const left = anchors[k - 1]!;
+      const right = anchors[k]!;
+      if (t <= right.t || k === anchors.length - 1) {
+        const u = Math.max(0, Math.min(1, (t - left.t) / (right.t - left.t)));
+        const smooth = u * u * (3 - 2 * u);
+        return climb(left.v + (right.v - left.v) * smooth);
+      }
+    }
+    return mainVal;
+  };
+  const points = Array.from({ length: sampleCount }, (_, i) => valueAt(i / (sampleCount - 1)));
+  // Ensure that the final point matches the dashboard amount exactly.
+  points[points.length - 1] = mainVal;
   const gx = 114, gy = 886, gw = 875, gh = 212;
   const coords = points.map((v, i) => ({
     x: gx + (i / Math.max(1, points.length - 1)) * gw,
@@ -90,7 +111,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   });
   const area = coords.length ? `${d} L ${gx + gw} ${gy + gh} L ${gx} ${gy + gh} Z` : '';
   const currentPoint = coords[coords.length - 1];
-  const statHigh = hasValidLimit ? Math.max(...points) : (sim.trend.length ? Math.max(...sim.trend.map(p => p.value)) : sim.current.value);
+  const statHigh = hasValidLimit && illustratedEvents > 0 ? max : hasValidLimit ? Math.max(...points) : (sim.trend.length ? Math.max(...sim.trend.map(p => p.value)) : sim.current.value);
   const statLow = hasValidLimit ? Math.min(...points) : (sim.trend.length ? Math.min(...sim.trend.map(p => p.value)) : sim.current.value);
 
   const o: string[] = [];
@@ -194,6 +215,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(box(26, 808, 1028, 368, 27));
   o.push(`<path d="M68 851 v-10 h7 v10 M81 851 v-22 h7 v22 M94 851 v-16 h7 v16" stroke="${CYAN}" stroke-width="5"/>`);
   o.push(label('TREND', 112, 854, 26, WHITE, 800));
+  o.push(label('ILLUSTRATIVE', 216, 850, 14, MUTED, 550));
   o.push(`<line x1="730" x2="774" y1="841" y2="841" stroke="${GOLD}" stroke-dasharray="10 7" stroke-width="4"/>`);
   o.push(label('24H High', 787, 847, 18, WHITE, 500));
   o.push(`<circle cx="879" cy="840" r="8" fill="${CYAN}"/>`);
@@ -208,7 +230,7 @@ export function buildPortraitSvg(input: RenderInput): string {
     o.push(`<line x1="${xx}" x2="${xx}" y1="${gy}" y2="${gy + gh}" stroke="#194F80" stroke-opacity=".5"/>`);
     if (i % 2 === 0) o.push(label(`${String(i * 3).padStart(2, '0')}:00`, xx, 1140, 18, WHITE, 500, 'text-anchor="middle"'));
   }
-  // Dashed line is the configured maximum; the area is NOT an observed hourly time series.
+  // Dashed line is the configured maximum; neither curve nor event timing is observed history.
   o.push(`<line x1="${gx}" x2="${gx + gw}" y1="${gy + 4}" y2="${gy + 4}" stroke="${GOLD}" stroke-dasharray="11 8" stroke-opacity=".9" stroke-width="2.8"/>`);
   if (area) o.push(`<path d="${area}" fill="url(#chartFill)"/>`);
   if (d) o.push(`<path d="${d}" fill="none" stroke="${CYAN}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>`);
