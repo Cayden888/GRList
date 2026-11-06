@@ -11,9 +11,9 @@ RUN npm run build && npm prune --omit=dev
 
 # ---- Run stage ----
 FROM node:22-bookworm-slim
-# IBM Plex for the control design, Noto CJK so Chinese titles render (no missing-glyph boxes).
+# Noto CJK so Chinese titles render (no missing-glyph boxes). fonts-ibm-plex is not available on Debian bookworm and is not referenced by FONT_STACK.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-ibm-plex fonts-noto-cjk fontconfig ca-certificates \
+ && apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && fc-cache -f
 ENV NODE_ENV=production \
