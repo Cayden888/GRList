@@ -237,7 +237,7 @@ export function buildProSvg(input: RenderInput): string {
   // ================= Main chart panel =================
   const cx0 = M;
   out.push(card(cx0, mainTop, chartW, mainBottom - mainTop));
-  out.push(cardLabel(cx0 + 28, mainTop + 40, `${L.current.toUpperCase()} · 24H`, 360, C.accent));
+  out.push(cardLabel(cx0 + 28, mainTop + 40, `${L.current.toUpperCase()} · LAST 24H`, 360, C.accent));
   const cur = formatValue(sim.current);
   const big = fitText(cur, 360, 68, 40);
   out.push(t(cx0 + 26, mainTop + 112, big.text, big.size, { weight: 700 }));
@@ -308,11 +308,13 @@ export function buildProSvg(input: RenderInput): string {
     const i = Math.round((h / 24) * (n - 1));
     const xx = X(i);
     out.push(`<line x1="${r(xx)}" y1="${gy0}" x2="${r(xx)}" y2="${gy1}" stroke="${C.grid}" stroke-width="1" stroke-dasharray="2 6"/>`);
-    out.push(t(xx, gy1 + 30, h === 24 ? 'NOW' : `−${24 - h}H`, 13, { color: h === 24 ? C.muted : C.faint, weight: 600, anchor: h === 0 ? 'start' : h === 24 ? 'end' : 'middle', spacing: 1 }));
+    const tickDate = new Date(input.timestamp.getTime() - (24 - h) * 3600_000);
+    const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hour12: false }).format(tickDate);
+    out.push(t(xx, gy1 + 30, h === 24 ? `${clock} NOW` : clock, 13, { color: h === 24 ? C.muted : C.faint, weight: 600, anchor: h === 0 ? 'start' : h === 24 ? 'end' : 'middle', spacing: 1 }));
   }
 
   const pts = sim.trend.map((p, i) => [X(i), Y(p.value)] as [number, number]);
-  const line = smoothPath(pts);
+  const line = pts.map(([px, py], i) => `${i === 0 ? 'M' : 'L'}${r(px)},${r(py)}`).join(' ');
   out.push(`<path d="${line} L${r(gx1)},${gy1} L${r(gx0)},${gy1} Z" fill="url(#area)"/>`);
   if (baseVal !== undefined) {
     const by = Y(baseVal);

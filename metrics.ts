@@ -127,7 +127,7 @@ export function simulateDashboard(item: DashboardItem, seed: string, opts: Simul
   else if (item.timeSinceUpdateText !== undefined) timeSinceUpdate = { text: item.timeSinceUpdateText, simulated: false };
   else timeSinceUpdate = { minutes: rngTime.int(opts.timeSinceUpdateMinMinutes, opts.timeSinceUpdateMaxMinutes), simulated: true };
 
-  const trend = generateTrend(item.current, current.value, rngGraph);
+  const trend = generateTrend(item.current, current.value, rngGraph, undefined, eventCount24h?.value ?? 0);
 
   return { itemId: item.id, seed, current, baseline, difference, volume24h, output24h, eventCount24h, limit24h, timeSinceUpdate, trend };
 }
