@@ -49,7 +49,9 @@ export function buildPortraitSvg(input: RenderInput): string {
   const max = range.max;
   // Position within the configured range, not a financial / payout rate.
   const ratio = max <= 0 ? 0 : Math.max(0, Math.min(1, mainVal / max));
-  const pct = Math.round(ratio * 100);
+  // The visual scale ends at the configured 98% threshold, not 100%.
+  // The sheet maximum represents 98% on this display.
+  const pct = Math.min(98, Math.max(0, Math.round(ratio * 98)));
   const num = mainLimit ? val(mainLimit) : val(sim.current);
   const displayNum = /^RM\s/i.test(num) ? num : `RM ${num}`;
   const currentPointNum = /^RM\s/i.test(rounded(mainVal)) ? rounded(mainVal) : `RM ${rounded(mainVal)}`;
@@ -66,49 +68,28 @@ export function buildPortraitSvg(input: RenderInput): string {
   const span = Math.max(1, trendMax - trendMin);
   const eventCount = Math.max(0, Math.floor(sim.eventCount24h?.value ?? 0));
   const illustratedEvents = hasValidLimit ? Math.min(eventCount, 3) : 0;
-  const sampleCount = Math.max(97, sim.trend.length);
   const startValue = hasValidLimit ? Math.min(mainVal, max * 0.45) : Math.min(mainVal, trendMin + span * 0.24);
   type Anchor = { t: number; v: number };
   const anchors: Anchor[] = [{ t: 0, v: startValue }];
   if (illustratedEvents > 0) {
-    // Earlier peak(s) touch the configured high line; an illustrated reset
-    // follows each peak, then the latest segment rises to the exact reading.
+    // Use sparse, explicit milestones for a crisp vector polyline.
+    // One event produces one peak, then one drop, followed by recovery to NOW.
     for (let n = 0; n < illustratedEvents; n++) {
       const peakTime = 0.26 + n * (0.49 / Math.max(1, illustratedEvents));
-      anchors.push({ t: peakTime - 0.065, v: max * 0.84 });
+      anchors.push({ t: peakTime - 0.11, v: max * 0.65 });
+      anchors.push({ t: peakTime - 0.035, v: max * 0.87 });
       anchors.push({ t: peakTime, v: max });
-      anchors.push({ t: peakTime + 0.035, v: max * 0.15 });
+      anchors.push({ t: peakTime + 0.045, v: max * 0.15 });
     }
   }
   anchors.push({ t: 1, v: mainVal });
-  const climb = (v: number) => Math.max(trendMin, Math.min(trendMax, v));
-  const valueAt = (t: number): number => {
-    for (let k = 1; k < anchors.length; k++) {
-      const left = anchors[k - 1]!;
-      const right = anchors[k]!;
-      if (t <= right.t || k === anchors.length - 1) {
-        const u = Math.max(0, Math.min(1, (t - left.t) / (right.t - left.t)));
-        const smooth = u * u * (3 - 2 * u);
-        return climb(left.v + (right.v - left.v) * smooth);
-      }
-    }
-    return mainVal;
-  };
-  const points = Array.from({ length: sampleCount }, (_, i) => valueAt(i / (sampleCount - 1)));
-  // Ensure that the final point matches the dashboard amount exactly.
-  points[points.length - 1] = mainVal;
   const gx = 114, gy = 886, gw = 875, gh = 212;
-  const coords = points.map((v, i) => ({
-    x: gx + (i / Math.max(1, points.length - 1)) * gw,
-    y: gy + (1 - (v - trendMin) / span) * gh,
+  const coords = anchors.map(p => ({
+    x: gx + p.t * gw,
+    y: gy + (1 - (p.v - trendMin) / span) * gh,
   }));
-  let d = '';
-  coords.forEach((p, i) => {
-    if (!i) { d = `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; return; }
-    const prev = coords[i - 1]!;
-    const middleX = (prev.x + p.x) / 2;
-    d += ` C ${middleX.toFixed(1)} ${prev.y.toFixed(1)}, ${middleX.toFixed(1)} ${p.y.toFixed(1)}, ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
-  });
+  // Straight-line segments: no Bézier controls, jitter or hand-drawn effect.
+  const d = coords.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   const area = coords.length ? `${d} L ${gx + gw} ${gy + gh} L ${gx} ${gy + gh} Z` : '';
   const currentPoint = coords[coords.length - 1];
   // Preserve the original high/low statistics independently of the illustrative trend curve.
@@ -169,7 +150,7 @@ export function buildPortraitSvg(input: RenderInput): string {
   o.push(`<g clip-path="url(#barClip)"><rect x="70" y="456" width="${Math.max(0, 792 * ratio)}" height="28" fill="url(#bar)"/><rect x="77" y="458" width="${Math.max(0, 780 * ratio)}" height="5" rx="2" fill="#FFF8BE" opacity="0.6"/></g>`);
   // Clearly marked 98% reference: horizontal dash + a down arrow into the bar.
   // The reference is a configured visual threshold, NOT a predicted outcome.
-  const explodeX = 70 + (792 * 0.98);
+  const explodeX = 70 + 792; // 98% is the end of the configured display scale
   const fillEndX = 70 + (792 * ratio);
   // Visible horizontal dashed segment in the unfilled portion of the bar.
   if (fillEndX < explodeX - 2) {
@@ -228,7 +209,11 @@ export function buildPortraitSvg(input: RenderInput): string {
   for (let i = 0; i <= 8; i++) {
     const xx = gx + i * gw / 8;
     o.push(`<line x1="${xx}" x2="${xx}" y1="${gy}" y2="${gy + gh}" stroke="#194F80" stroke-opacity=".5"/>`);
-    if (i % 2 === 0) o.push(label(`${String(i * 3).padStart(2, '0')}:00`, xx, 1140, 18, WHITE, 500, 'text-anchor="middle"'));
+    if (i % 2 === 0) {
+      const tick = new Date(input.timestamp.getTime() - (24 - i * 3) * 60 * 60 * 1000);
+      const timeLabel = i === 8 ? 'NOW' : new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hour12: false }).format(tick);
+      o.push(label(timeLabel, xx, 1140, 18, WHITE, 500, 'text-anchor="middle"'));
+    }
   }
   // Dashed line is the configured maximum; neither curve nor event timing is observed history.
   o.push(`<line x1="${gx}" x2="${gx + gw}" y1="${gy + 4}" y2="${gy + 4}" stroke="${GOLD}" stroke-dasharray="11 8" stroke-opacity=".9" stroke-width="2.8"/>`);
